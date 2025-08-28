@@ -48,6 +48,18 @@ builder.Services.AddRateLimiter(options =>
             }));
 });
 
+// Thêm CORS
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowFrontend",
+        policy =>
+        {
+            policy.WithOrigins("http://localhost:5173") // domain frontend
+                  .AllowAnyHeader()
+                  .AllowAnyMethod();
+        });
+});
+
 // Authorization & Identity
 builder.Services.AddAuthorization();
 builder.Services.AddIdentityApiEndpoints<IdentityUser>(options =>
@@ -79,6 +91,8 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+
+app.UseCors("AllowFrontend");
 
 app.UseHttpsRedirection();  // 1. HTTPS redirect trước
 app.UseAuthentication();    // 2. Authentication
