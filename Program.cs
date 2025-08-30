@@ -1,10 +1,5 @@
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.Tokens;
-using System.Text;
-using Microsoft.AspNetCore.RateLimiting;
-using System.Threading.RateLimiting;
+
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -80,6 +75,8 @@ builder.Services.AddSwaggerGen();
 // DI Services
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IUserRepo, UserRepo>();
+builder.Services.AddScoped<ICategoryService, CategoryService>();
+builder.Services.AddScoped<ICategoryRepo, CategoryRepo>();
 // builder.Services.AddScoped<IProductService, ProductService>();
 
 var app = builder.Build();
