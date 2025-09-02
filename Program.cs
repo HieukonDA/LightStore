@@ -1,6 +1,8 @@
 
 
 
+
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Services
@@ -49,7 +51,11 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowFrontend",
         policy =>
         {
-            policy.WithOrigins("http://localhost:5173") // domain frontend
+            policy.WithOrigins(
+                "http://localhost:5173",      // Vite frontend
+                "https://localhost:5264",    // Swagger UI (https)
+                "http://localhost:5264"      // Swagger UI (http)
+            ) // domain frontend
                   .AllowAnyHeader()
                   .AllowAnyMethod();
         });
@@ -77,7 +83,8 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IUserRepo, UserRepo>();
 builder.Services.AddScoped<ICategoryService, CategoryService>();
 builder.Services.AddScoped<ICategoryRepo, CategoryRepo>();
-// builder.Services.AddScoped<IProductService, ProductService>();
+builder.Services.AddScoped<IProductService, ProductService>();
+builder.Services.AddScoped<IProductRepo, ProductRepo>();
 
 var app = builder.Build();
 

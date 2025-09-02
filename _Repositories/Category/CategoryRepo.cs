@@ -1,6 +1,4 @@
 
-using TheLightStore.Dtos.Paging;
-using TheLightStore.Models.Category;
 
 namespace TheLightStore.Repositories.Category;
 

@@ -11,6 +11,6 @@ public class Category
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; } = DateTime.Now;
     public DateTime UpdatedAt { get; set; } = DateTime.Now;
-    public Category Parent { get; set; } = new Category();
+    public Category? Parent { get; set; }
     public ICollection<Category> Children { get; set; } = new List<Category>();
 }

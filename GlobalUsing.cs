@@ -12,6 +12,11 @@ global using TheLightStore.Dtos.Category;
 global using TheLightStore.Interfaces.Category;
 global using TheLightStore.Dtos.Paging;
 global using TheLightStore.Repositories.Category;
+global using TheLightStore.Dtos.Products;
+global using TheLightStore.Interfaces.Products;
+global using TheLightStore.Models.Products;
+global using TheLightStore.Repositories.Products;
+global using TheLightStore.Services.Products;
 
 
 // system
