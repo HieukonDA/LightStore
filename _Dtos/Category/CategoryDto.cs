@@ -11,7 +11,7 @@ public class CategoryDto
     public int SortOrder { get; set; } = 0;
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; } = DateTime.Now;
-    public DateTime UpdatedAt { get; set; } = DateTime.Now;
+    public DateTime? UpdatedAt { get; set; } = DateTime.Now;
 
     // Hierarchical data
     public List<CategoryDto> Children { get; set; } = new List<CategoryDto>();

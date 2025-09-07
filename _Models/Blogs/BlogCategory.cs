@@ -1,13 +1,14 @@
-namespace TheLightStore.Models.Repositories;
+﻿
 
+namespace TheLightStore.Models.Blogs;
 
-public class Brand
+public partial class BlogCategory
 {
     public int Id { get; set; }
 
     public string Name { get; set; } = null!;
 
-    public string? LogoUrl { get; set; }
+    public string Slug { get; set; } = null!;
 
     public string? Description { get; set; }
 
@@ -15,5 +16,5 @@ public class Brand
 
     public DateTime? CreatedAt { get; set; }
 
-    public virtual ICollection<Product> Products { get; set; } = new List<Product>();
+    public virtual ICollection<BlogPost> BlogPosts { get; set; } = new List<BlogPost>();
 }

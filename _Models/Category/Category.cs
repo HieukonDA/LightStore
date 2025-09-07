@@ -1,16 +1,29 @@
-namespace TheLightStore.Models.Category;
+namespace TheLightStore.Models.Categories;
 public class Category
 {
-    public int Id { get; set; } 
-    public string Name { get; set; } = string.Empty;
-    public string Slug { get; set; } = string.Empty;
-    public string Description { get; set; } = string.Empty;
-    public string ImageUrl { get; set; } = string.Empty;
-    public int? ParentId { get; set; } = 0;
-    public int SortOrder { get; set; } = 0;
-    public bool IsActive { get; set; } = true;
-    public DateTime CreatedAt { get; set; } = DateTime.Now;
-    public DateTime UpdatedAt { get; set; } = DateTime.Now;
-    public Category? Parent { get; set; }
-    public ICollection<Category> Children { get; set; } = new List<Category>();
+    public int Id { get; set; }
+
+    public string Name { get; set; } = null!;
+
+    public string Slug { get; set; } = null!;
+
+    public string? Description { get; set; }
+
+    public string? ImageUrl { get; set; }
+
+    public int? ParentId { get; set; }
+
+    public int SortOrder { get; set; }
+
+    public bool IsActive { get; set; }
+
+    public DateTime CreatedAt { get; set; }
+
+    public DateTime? UpdatedAt { get; set; }
+
+    public virtual ICollection<Category> InverseParent { get; set; } = new List<Category>();
+
+    public virtual Category? Parent { get; set; }
+
+    public virtual ICollection<Product> Products { get; set; } = new List<Product>();
 }

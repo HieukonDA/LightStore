@@ -1,7 +1,6 @@
-namespace TheLightStore.Models.Repositories;
+﻿namespace TheLightStore.Models.Products;
 
-
-public class Brand
+public partial class Brand
 {
     public int Id { get; set; }
 
@@ -11,7 +10,7 @@ public class Brand
 
     public string? Description { get; set; }
 
-    public bool? IsActive { get; set; }
+    public bool IsActive { get; set; }
 
     public DateTime? CreatedAt { get; set; }
 

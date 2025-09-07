@@ -1,22 +1,52 @@
 
 
+
+
 namespace TheLightStore.Models.Auth;
 
 public class User
 {
     public int Id { get; set; }
-    public string Email { get; set; } = string.Empty;
-    public string PasswordHash { get; set; } = string.Empty;
-    public string FirstName { get; set; } = string.Empty;
-    public string LastName { get; set; } = string.Empty;
-    public string Phone { get; set; } = string.Empty;
-    public string UserType { get; set; } = string.Empty;
-    public bool IsActive { get; set; }
-    public bool EmailVerified { get; set; }
 
-    [Column(TypeName = "datetime2")]
-    public DateTime CreatedAt { get; set; } = DateTime.Now;
+    public string Email { get; set; } = null!;
 
-    [Column(TypeName = "datetime2")]
-    public DateTime UpdatedAt { get; set; } = DateTime.Now;
+    public string PasswordHash { get; set; } = null!;
+
+    public string FirstName { get; set; } = null!;
+
+    public string LastName { get; set; } = null!;
+
+    public string? Phone { get; set; }
+
+    public string UserType { get; set; } = null!;
+
+    public bool? IsActive { get; set; }
+
+    public bool? EmailVerified { get; set; }
+
+    public DateTime? CreatedAt { get; set; }
+
+    public DateTime? UpdatedAt { get; set; }
+
+    public virtual ICollection<Address> Addresses { get; set; } = new List<Address>();
+
+    public virtual ICollection<BlogPost> BlogPosts { get; set; } = new List<BlogPost>();
+
+    public virtual ICollection<CouponUsage> CouponUsages { get; set; } = new List<CouponUsage>();
+
+    public virtual ICollection<InventoryLog> InventoryLogs { get; set; } = new List<InventoryLog>();
+
+    public virtual ICollection<InventoryReservation> InventoryReservations { get; set; } = new List<InventoryReservation>();
+
+    public virtual ICollection<OrderStatusHistory> OrderStatusHistories { get; set; } = new List<OrderStatusHistory>();
+
+    public virtual ICollection<Order> Orders { get; set; } = new List<Order>();
+
+    public virtual ICollection<ProductReview> ProductReviews { get; set; } = new List<ProductReview>();
+
+    public virtual ICollection<ReviewHelpfulVote> ReviewHelpfulVotes { get; set; } = new List<ReviewHelpfulVote>();
+
+    public virtual ICollection<SavedCart> SavedCarts { get; set; } = new List<SavedCart>();
+
+    public virtual ShoppingCart? ShoppingCart { get; set; }
 }

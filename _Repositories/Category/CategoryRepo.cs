@@ -114,7 +114,7 @@ public class CategoryRepo : ICategoryRepo
             throw new Exception("Category already exists");
         }
 
-        var category = new Models.Category.Category
+        var category = new TheLightStore.Models.Categories.Category
         {
             Name = categoryDto.Name,
             Slug = categoryDto.Slug,

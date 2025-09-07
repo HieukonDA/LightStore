@@ -1,4 +1,4 @@
-namespace TheLightStore.Models.Product;
+namespace TheLightStore.Models.Products;
 
 public class ProductVariantAttribute
 {

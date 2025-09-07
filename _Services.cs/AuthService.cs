@@ -105,6 +105,9 @@ public class AuthService : IAuthService
             {
                 Email = registerDto.Email,
                 PasswordHash = hashedPassword,
+                FirstName = registerDto.FirstName,
+                LastName = registerDto.LastName,
+                Phone = registerDto.Phone,
                 UserType = "customer",
                 CreatedAt = DateTime.Now
             };
