@@ -26,7 +26,7 @@ public class ProductVariant
 
     public string? Dimensions { get; set; }
 
-    public bool? IsActive { get; set; }
+    public bool IsActive { get; set; }
 
     public int? SortOrder { get; set; }
 

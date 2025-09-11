@@ -14,10 +14,21 @@ public interface IShoppingCartRepo
     Task<ShoppingCart?> GetCartWithItemsAsync(int cartId);
     Task<ShoppingCart?> GetCartWithItemsByUserIdAsync(int userId);
     Task<ShoppingCart?> GetCartWithItemsBySessionIdAsync(string sessionId);
-    
+
     // Cart Operations
-    Task UpdateCartTotalsAsync(int cartId);
-    Task TransferCartOwnershipAsync(string sessionId, int userId);
-    Task MergeCartsAsync(int targetCartId, int sourceCartId);
-    Task ClearExpiredCartsAsync(DateTime expirationDate);
+    Task<bool> UpdateCartTotalsAsync(int cartId);
+    Task<bool> TransferCartOwnershipAsync(string sessionId, int userId);
+    Task<bool> MergeCartsAsync(int targetCartId, int sourceCartId);
+    Task<bool> ClearExpiredCartsAsync(DateTime expirationDate);
+
+    // Statistics Methods - NEW
+    Task<int> CountActiveCartsAsync();
+    Task<int> CountAbandonedCartsAsync(TimeSpan abandonedPeriod);
+    Task<decimal> GetTotalCartsValueAsync();
+    Task<decimal> GetAverageCartValueAsync();
+    Task<double> GetAverageItemsPerCartAsync();
+    Task<int> GetTotalCartItemsAsync();
+
+    // Additional methods can be added as needed
+    Task<List<ShoppingCart>> GetExpiredEmptyCartsAsync(DateTime cutoffDate);
 }

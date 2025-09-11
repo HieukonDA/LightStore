@@ -18,7 +18,7 @@ public class Product
 
     public string Sku { get; set; } = null!;
 
-    public decimal? BasePrice { get; set; }
+    public decimal BasePrice { get; set; }
 
     public decimal? SalePrice { get; set; }
 

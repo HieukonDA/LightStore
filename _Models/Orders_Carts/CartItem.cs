@@ -16,9 +16,10 @@ public partial class CartItem
 
     public decimal TotalPrice { get; set; }
 
-    public DateTime? AddedAt { get; set; }
+    public DateTime AddedAt { get; set; }
 
     public DateTime? UpdatedAt { get; set; }
+    public bool IsSelected { get; set; } = true;
 
     public virtual ShoppingCart Cart { get; set; } = null!;
 

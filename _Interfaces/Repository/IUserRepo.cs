@@ -14,4 +14,9 @@ public interface IUserRepo
     Task AddTokenAsync(string email, string token);
     Task<string> GetTokenByEmailAsync(string email);
     Task<bool> DeleteTokenAsync(string token);
+    Task<User?> GetUserByResetTokenAsync(string token);
+
+    //otp
+    Task<bool> SaveOtpAsync(string email, string otp, DateTime expiryTime);
+    Task<bool> ValidateAndResetPasswordAsync(string email, string otp, string newPasswordHash);
 }

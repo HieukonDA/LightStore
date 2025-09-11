@@ -5,7 +5,7 @@ public class UpdateProductDto
     public int? CategoryId { get; set; }
     public int? BrandId { get; set; }
     public string? Sku { get; set; }
-    public decimal? BasePrice { get; set; }
+    public decimal BasePrice { get; set; }
     public string? ShortDescription { get; set; }
     public string? Description { get; set; }
     public decimal? SalePrice { get; set; }

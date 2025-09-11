@@ -22,9 +22,11 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
-            ValidateAudience = false,
+            ValidateAudience = true,
             ValidateIssuerSigningKey = true,
             ValidateLifetime = true,
+            ClockSkew = TimeSpan.Zero,
+
             ValidIssuer = builder.Configuration["Jwt:Issuer"],
             ValidAudience = builder.Configuration["Jwt:Audience"],
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
@@ -63,7 +65,7 @@ builder.Services.AddCors(options =>
 
 // Authorization & Identity
 builder.Services.AddAuthorization();
-builder.Services.AddIdentityApiEndpoints<IdentityUser>(options =>
+builder.Services.AddIdentityCore<IdentityUser>(options =>
 {
     options.Password.RequireDigit = false;
     options.Password.RequiredLength = 6;
@@ -73,6 +75,8 @@ builder.Services.AddIdentityApiEndpoints<IdentityUser>(options =>
 })
 .AddEntityFrameworkStores<DBContext>()
 .AddDefaultTokenProviders();
+builder.Services.AddHttpContextAccessor();
+
 
 // Swagger
 builder.Services.AddEndpointsApiExplorer();
@@ -85,6 +89,8 @@ builder.Services.AddScoped<ICategoryService, CategoryService>();
 builder.Services.AddScoped<ICategoryRepo, CategoryRepo>();
 builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<IProductRepo, ProductRepo>();
+builder.Services.AddScoped<IEmailService, EmailService>();
+
 
 var app = builder.Build();
 
@@ -96,14 +102,16 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseCors("AllowFrontend");
+
 
 app.UseHttpsRedirection();  // 1. HTTPS redirect trước
+app.UseCors("AllowFrontend");
+app.UseRateLimiter();
 app.UseAuthentication();    // 2. Authentication
 app.UseAuthorization();     // 3. Authorization  
-app.UseRateLimiter();      // 4. Rate limiting
+      // 4. Rate limiting
 
 app.MapControllers();       // 5. Map controllers
-app.MapIdentityApi<IdentityUser>(); // 6. Map Identity API
+// app.MapIdentityApi<IdentityUser>(); // 6. Map Identity API
 
 app.Run();

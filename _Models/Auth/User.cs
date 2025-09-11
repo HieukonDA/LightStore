@@ -24,9 +24,14 @@ public class User
 
     public bool? EmailVerified { get; set; }
 
-    public DateTime? CreatedAt { get; set; }
+    public DateTime CreatedAt { get; set; }
 
     public DateTime? UpdatedAt { get; set; }
+    public string? RefreshToken { get; set; }
+    public DateTime? RefreshTokenExpiryTime { get; set; }
+    public string? PasswordResetOtp { get; set; }
+    public DateTime? OtpExpiryTime { get; set; }
+    public int OtpAttempts { get; set; } = 0;
 
     public virtual ICollection<Address> Addresses { get; set; } = new List<Address>();
 

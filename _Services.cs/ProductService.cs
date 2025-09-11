@@ -455,7 +455,7 @@ public class ProductService : IProductService
             errors.Add("SKU cannot be empty");
         }
 
-        if (dto.BasePrice.HasValue && dto.BasePrice <= 0)
+        if (dto.BasePrice != null && dto.BasePrice <= 0)
         {
             errors.Add("Base price must be greater than 0");
         }
@@ -466,7 +466,7 @@ public class ProductService : IProductService
         }
 
         // Business logic validation
-        if (dto.SalePrice.HasValue && dto.BasePrice.HasValue && dto.SalePrice > dto.BasePrice)
+        if (dto.SalePrice.HasValue && dto.BasePrice != null && dto.SalePrice > dto.BasePrice)
         {
             errors.Add("Sale price cannot be greater than base price");
         }
@@ -671,7 +671,7 @@ public class ProductService : IProductService
         if (dto.Description != null)
             existingProduct.Description = dto.Description;
 
-        if (dto.BasePrice.HasValue)
+        if (dto.BasePrice != null)
             existingProduct.BasePrice = dto.BasePrice;
 
         if (dto.SalePrice.HasValue)

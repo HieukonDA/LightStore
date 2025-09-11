@@ -5,17 +5,23 @@ namespace TheLightStore.Services;
 
 public class AuthService : IAuthService
 {
-    readonly private DBContext _context;
-    readonly private IUserRepo _userRepo;
-    readonly private ILogger<AuthService> _logger;
-    readonly private IConfiguration _configuration;
+    private readonly DBContext _context;
+    private readonly IUserRepo _userRepo;
+    private readonly ILogger<AuthService> _logger;
+    private readonly IConfiguration _configuration;
+    private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly IEmailService _emailService;
+    private static readonly Dictionary<string, OtpData> _otpCache = new();
+    private static readonly object _cacheLock = new();
 
-    public AuthService(DBContext context, IUserRepo userRepo, ILogger<AuthService> logger, IConfiguration configuration)
+    public AuthService(DBContext context, IUserRepo userRepo, ILogger<AuthService> logger, IConfiguration configuration, IHttpContextAccessor httpContextAccessor, IEmailService emailService)
     {
         _context = context;
         _userRepo = userRepo;
         _logger = logger;
         _configuration = configuration;
+        _httpContextAccessor = httpContextAccessor;
+        _emailService = emailService;
     }
 
     #region implement interfaces
@@ -60,7 +66,17 @@ public class AuthService : IAuthService
             {
                 AccessToken = accessToken,
                 RefreshToken = refreshToken,
-                ExpireAt = DateTime.Now.AddMinutes(GetJwtExpirationMinutes())
+                ExpireAt = DateTime.Now.AddMinutes(GetJwtExpirationMinutes()),
+                User = new UserDto
+                {
+                    Id = user.Id,
+                    Email = user.Email,
+                    FirstName = user.FirstName,
+                    LastName = user.LastName,
+                    Phone = user.Phone,
+                    UserType = user.UserType,
+                    CreatedAt = user.CreatedAt
+                }
             };
 
             _logger.LogInformation($"Login successful for user: {user.Email}");
@@ -116,6 +132,13 @@ public class AuthService : IAuthService
             await _userRepo.AddUserAsync(newUser);
             await _context.SaveChangesAsync();
 
+            //send welcome email
+            await _emailService.SendEmailAsync(
+                newUser.Email,
+                "Welcome to LightStore!",
+                $"<h2>Hello {newUser.FirstName}!</h2><p>Thank you for registering at LightStore.</p>"
+            );
+
             //create token
             var accessToken = GenerateAccessToken(newUser);
             var refreshToken = GenerateRefreshToken();
@@ -129,26 +152,287 @@ public class AuthService : IAuthService
                 AccessToken = accessToken,
                 RefreshToken = refreshToken,
                 ExpireAt = DateTime.Now.AddMinutes(GetJwtExpirationMinutes()),
-                User = new User
+                User = new UserDto
                 {
                     Id = newUser.Id,
                     Email = newUser.Email,
-                    UserType = newUser.UserType
+                    FirstName = newUser.FirstName,
+                    LastName = newUser.LastName,
+                    Phone = newUser.Phone,
+                    UserType = newUser.UserType,
+                    CreatedAt = newUser.CreatedAt
                 }
             };
 
             _logger.LogInformation("User registered successfully with email: {Email}", registerDto.Email);
-            return  ServiceResult<AuthResponseDto>.SuccessResult(response);
+            return ServiceResult<AuthResponseDto>.SuccessResult(response);
 
         }
         catch (System.Exception ex)
         {
             _logger.LogError(ex, "An error occurred while registering a new user.");
-            return  ServiceResult<AuthResponseDto>.FailureResult("An error occurred while processing your request.", new List<string>());
+            return ServiceResult<AuthResponseDto>.FailureResult("An error occurred while processing your request.", new List<string>());
         }
     }
 
+    public async Task<ServiceResult<bool>> ForgotPasswordAsync(ForgotPasswordDto forgotPasswordDto)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(forgotPasswordDto.Email))
+            {
+                return ServiceResult<bool>.FailureResult("Email is required.", new List<string>());
+            }
+
+            var user = await _userRepo.GetUserByEmailAsync(forgotPasswordDto.Email);
+            if (user == null)
+            {
+                _logger.LogWarning("Forgot password attempted for non-existing email: {Email}", forgotPasswordDto.Email);
+                // Vẫn trả về success để không lộ thông tin user
+                return ServiceResult<bool>.SuccessResult(true, "If the email exists, you will receive an OTP code.");
+            }
+
+            // Tạo OTP 6 số
+            var otp = GenerateOTP();
+            var expiryTime = DateTime.Now.AddMinutes(10); // OTP hết hạn sau 10 phút
+
+            // Lưu OTP vào cache
+            lock (_cacheLock)
+            {
+                _otpCache[forgotPasswordDto.Email] = new OtpData
+                {
+                    Email = forgotPasswordDto.Email,
+                    Otp = otp,
+                    ExpiresAt = expiryTime,
+                    Attempts = 0
+                };
+            }
+
+            // Gửi email OTP
+            await _emailService.SendEmailAsync(
+                user.Email,
+                "Password Reset OTP",
+                $"<h2>Password Reset Request</h2>" +
+                $"<p>Your OTP code is: <strong>{otp}</strong></p>" +
+                $"<p>This code will expire in 10 minutes.</p>" +
+                $"<p>If you didn't request this, please ignore this email.</p>"
+            );
+
+            _logger.LogInformation("OTP sent for password reset to email: {Email}", forgotPasswordDto.Email);
+
+            return ServiceResult<bool>.SuccessResult(true, "OTP has been sent to your email address.");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Forgot password OTP process failed for {Email}", forgotPasswordDto.Email);
+            return ServiceResult<bool>.FailureResult("An error occurred while processing your request.", new List<string> { ex.Message });
+        }
+
+    }
+
+    public async Task<ServiceResult<bool>> ChangePasswordAsync(ChangePasswordDto changePasswordDto)
+    {
+        try
+        {
+            // Lấy userId từ Claims
+            var userIdClaim = _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.NameIdentifier);
+            if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out int userId))
+            {
+                return ServiceResult<bool>.FailureResult("Unauthorized.", new List<string>());
+            }
+
+            var user = await _userRepo.GetUserByIdAsync(userId);
+            if (user == null)
+            {
+                return ServiceResult<bool>.FailureResult("User not found.", new List<string>());
+            }
+
+            // check curerent password
+            bool isPasswordValid = BCrypt.Net.BCrypt.Verify(changePasswordDto.CurrentPassword, user.PasswordHash);
+            if (!isPasswordValid)
+            {
+                return ServiceResult<bool>.FailureResult("Current password is incorrect.", new List<string>());
+            }
+
+            // validate new password
+            if (!IsValidPassword(changePasswordDto.NewPassword))
+            {
+                return ServiceResult<bool>.FailureResult(
+                    "Password must be at least 12 characters, include upper/lowercase letters, numbers and special characters.",
+                    new List<string>());
+            }
+
+            // Hash mật khẩu mới
+            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(changePasswordDto.NewPassword);
+            var updateResult = await _userRepo.UpdateUserAsync(user);
+
+            if (!updateResult)
+            {
+                return ServiceResult<bool>.FailureResult("Failed to update password.", new List<string>());
+            }
+
+            _logger.LogInformation("Password changed successfully for user {Email}", user.Email);
+            return ServiceResult<bool>.SuccessResult(true, "Password changed successfully.");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Change password failed.");
+            return ServiceResult<bool>.FailureResult("An error occurred while changing password.", new List<string> { ex.Message });
+        }
+
+    }
+
+    public async Task<ServiceResult<bool>> ResetPasswordWithOtpAsync(ResetPasswordDto resetDto)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(resetDto.Email) ||
+                string.IsNullOrWhiteSpace(resetDto.Otp) ||
+                string.IsNullOrWhiteSpace(resetDto.NewPassword))
+            {
+                return ServiceResult<bool>.FailureResult("Email, OTP, and new password are required.", new List<string>());
+            }
+
+            OtpData otpData;
+            lock (_cacheLock)
+            {
+                if (!_otpCache.TryGetValue(resetDto.Email, out otpData))
+                {
+                    return ServiceResult<bool>.FailureResult("Invalid or expired OTP.", new List<string>());
+                }
+            }
+
+            // Kiểm tra số lần thử
+            if (otpData.Attempts >= 5)
+            {
+                lock (_cacheLock)
+                {
+                    _otpCache.Remove(resetDto.Email);
+                }
+                return ServiceResult<bool>.FailureResult("Too many failed attempts. Please request a new OTP.", new List<string>());
+            }
+
+            // Kiểm tra OTP hết hạn
+            if (DateTime.Now > otpData.ExpiresAt)
+            {
+                lock (_cacheLock)
+                {
+                    _otpCache.Remove(resetDto.Email);
+                }
+                return ServiceResult<bool>.FailureResult("OTP has expired. Please request a new one.", new List<string>());
+            }
+
+            // Kiểm tra OTP đúng
+            if (otpData.Otp != resetDto.Otp)
+            {
+                lock (_cacheLock)
+                {
+                    otpData.Attempts++;
+                }
+                return ServiceResult<bool>.FailureResult($"Invalid OTP. {5 - otpData.Attempts} attempts remaining.", new List<string>());
+            }
+
+            // Tìm user
+            var user = await _userRepo.GetUserByEmailAsync(resetDto.Email);
+            if (user == null)
+            {
+                return ServiceResult<bool>.FailureResult("User not found.", new List<string>());
+            }
+
+            // Validate password mới
+            if (!IsValidPassword(resetDto.NewPassword))
+            {
+                return ServiceResult<bool>.FailureResult(
+                    "Password must be at least 8 characters, include upper/lowercase letters, numbers and special characters.",
+                    new List<string>());
+            }
+
+            // Hash mật khẩu mới
+            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(resetDto.NewPassword);
+
+            await _userRepo.UpdateUserAsync(user);
+            await _context.SaveChangesAsync();
+
+            // Xóa OTP khỏi cache
+            lock (_cacheLock)
+            {
+                _otpCache.Remove(resetDto.Email);
+            }
+
+            _logger.LogInformation("Password reset successfully with OTP for user {Email}", user.Email);
+            return ServiceResult<bool>.SuccessResult(true, "Password reset successfully.");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Reset password with OTP failed.");
+            return ServiceResult<bool>.FailureResult("An error occurred while resetting password.", new List<string> { ex.Message });
+        }
+    }
     
+
+    public async Task<ServiceResult<bool>> ResendOtpAsync(string email)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(email))
+            {
+                return ServiceResult<bool>.FailureResult("Email is required.", new List<string>());
+            }
+
+            var user = await _userRepo.GetUserByEmailAsync(email);
+            if (user == null)
+            {
+                return ServiceResult<bool>.SuccessResult(true, "If the email exists, a new OTP will be sent.");
+            }
+
+            // Kiểm tra xem có OTP cũ không
+            lock (_cacheLock)
+            {
+                if (_otpCache.ContainsKey(email))
+                {
+                    var existingOtp = _otpCache[email];
+                    // Chỉ cho phép gửi lại nếu OTP cũ sắp hết hạn (còn < 2 phút)
+                    if (DateTime.Now < existingOtp.ExpiresAt.AddMinutes(-8))
+                    {
+                        return ServiceResult<bool>.FailureResult("Please wait before requesting a new OTP.", new List<string>());
+                    }
+                }
+            }
+
+            // Tạo OTP mới
+            var newOtp = GenerateOTP();
+            var expiryTime = DateTime.Now.AddMinutes(10);
+
+            lock (_cacheLock)
+            {
+                _otpCache[email] = new OtpData
+                {
+                    Email = email,
+                    Otp = newOtp,
+                    ExpiresAt = expiryTime,
+                    Attempts = 0
+                };
+            }
+
+            // Gửi email OTP mới
+            await _emailService.SendEmailAsync(
+                user.Email,
+                "New Password Reset OTP",
+                $"<h2>New Password Reset OTP</h2>" +
+                $"<p>Your new OTP code is: <strong>{newOtp}</strong></p>" +
+                $"<p>This code will expire in 10 minutes.</p>"
+            );
+
+            _logger.LogInformation("New OTP sent for password reset to email: {Email}", email);
+            return ServiceResult<bool>.SuccessResult(true, "A new OTP has been sent to your email.");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Resend OTP failed for {Email}", email);
+            return ServiceResult<bool>.FailureResult("An error occurred while sending OTP.", new List<string> { ex.Message });
+        }
+    }
+
 
 
 
@@ -242,12 +526,28 @@ public class AuthService : IAuthService
 
     private async Task SaveRefreshTokenAsync(int userId, string refreshToken)
     {
-        await Task.CompletedTask;
+        var user = await _userRepo.GetUserByIdAsync(userId);
+        if (user == null) return;
+
+        user.RefreshToken = refreshToken;
+        user.RefreshTokenExpiryTime = DateTime.Now.AddDays(7); // ví dụ refresh token sống 7 ngày
+
+        await _userRepo.UpdateUserAsync(user);
+        await _context.SaveChangesAsync();
     }
 
     private int GetJwtExpirationMinutes()
     {
         return int.TryParse(_configuration["Jwt:ExpirationMinutes"], out var minutes) ? minutes : 60;
+    }
+
+    
+
+    // 6. Helper method để tạo OTP
+    private string GenerateOTP()
+    {
+        var random = new Random();
+        return random.Next(100000, 999999).ToString(); // Tạo số 6 chữ số
     }
     
 

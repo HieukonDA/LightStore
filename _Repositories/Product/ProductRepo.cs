@@ -135,11 +135,11 @@ public class ProductRepo : IProductRepo
     #endregion
 
     #region get by feature
-    
+
     public async Task<PagedResult<Product>> GetByCategoryAsync(int categoryId, PagedRequest pagedRequest)
     {
         var query = _context.Products
-            .Where(c => c.CategoryId == categoryId && c.IsActive)      
+            .Where(c => c.CategoryId == categoryId && c.IsActive)
             .Include(c => c.Category)
             //.Include(c => c.Brand)
             .AsQueryable();
@@ -189,6 +189,11 @@ public class ProductRepo : IProductRepo
             PageSize = pagedRequest.Size
         };
     }
-        
+
     #endregion
+
+    #region balabala
+    
+    #endregion
+
 }
