@@ -66,6 +66,14 @@ public partial class DBContext : DbContext
 
     public virtual DbSet<User> Users { get; set; }
 
+    public DbSet<Role> Roles { get; set; }
+
+    public DbSet<Permission> Permissions { get; set; }
+
+    public DbSet<UserRole> UserRoles { get; set; }
+    
+    public DbSet<RolePermission> RolePermissions { get; set; }
+
     // onmodel creating method for fluent api configurations if any are needed in the future
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -944,6 +952,62 @@ public partial class DBContext : DbContext
             entity.Property(e => e.UpdatedAt).HasDefaultValueSql("(getutcdate())");
             entity.Property(e => e.UserType).HasMaxLength(50);
         });
+
+        // =======================
+        // UserRole Configuration
+        // =======================
+        modelBuilder.Entity<UserRole>(entity =>
+        {
+            // Composite key
+            entity.HasKey(ur => new { ur.UserId, ur.RoleId })
+                .HasName("PK_UserRole");
+
+            // Relationships
+            entity.HasOne(ur => ur.User)
+                .WithMany(u => u.UserRoles)
+                .HasForeignKey(ur => ur.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(ur => ur.Role)
+                .WithMany(r => r.UserRoles)
+                .HasForeignKey(ur => ur.RoleId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.Property(ur => ur.AssignedAt)
+                .HasDefaultValueSql("GETUTCDATE()");
+
+            entity.Property(ur => ur.IsActive)
+                .HasDefaultValue(true);
+        });
+
+        // ===========================
+        // RolePermission Configuration
+        // ===========================
+        modelBuilder.Entity<RolePermission>(entity =>
+        {
+            // Composite key
+            entity.HasKey(rp => new { rp.RoleId, rp.PermissionId })
+                .HasName("PK_RolePermission");
+
+            // Relationships
+            entity.HasOne(rp => rp.Role)
+                .WithMany(r => r.RolePermissions)
+                .HasForeignKey(rp => rp.RoleId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(rp => rp.Permission)
+                .WithMany(p => p.RolePermissions)
+                .HasForeignKey(rp => rp.PermissionId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.Property(rp => rp.AssignedAt)
+                .HasDefaultValueSql("GETUTCDATE()");
+
+            entity.Property(rp => rp.IsActive)
+                .HasDefaultValue(true);
+        });
+
+
 
         OnModelCreatingPartial(modelBuilder);
     }

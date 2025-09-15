@@ -12,6 +12,7 @@ public class CartItemDto
     
     public int Quantity { get; set; }
     public decimal UnitPrice { get; set; }
+    public decimal? OriginalPrice { get; set; }
     public decimal TotalPrice { get; set; }
     
     public bool IsAvailable { get; set; } // Product still active?

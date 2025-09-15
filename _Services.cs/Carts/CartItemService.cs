@@ -34,7 +34,7 @@ public class CartItemService : ICartItemService
     /// <param name="quantity"></param>
     /// <param name="variantId"></param>
     /// <returns></returns>
-    public async Task<ServiceResult<ShoppingCart>> AddToCartAsync(int? userId, string? sessionId, int productId, int quantity, int? variantId = null)
+    public async Task<ServiceResult<CartDto>> AddToCartAsync(int? userId, string? sessionId, int productId, int quantity, int? variantId = null)
     {
         try
         {
@@ -43,24 +43,54 @@ public class CartItemService : ICartItemService
             // Validate input
             if (quantity <= 0)
             {
-                return ServiceResult<ShoppingCart>.FailureResult("Quantity must be greater than zero.", new List<string> { "Invalid quantity." });
+                return ServiceResult<CartDto>.FailureResult("Quantity must be greater than zero.", new List<string> { "Invalid quantity." });
             }
             if (userId == null && string.IsNullOrEmpty(sessionId))
             {
-                return ServiceResult<ShoppingCart>.FailureResult("Either userId or sessionId must be provided.", new List<string> { "Invalid input parameters." });
+                return ServiceResult<CartDto>.FailureResult("Either userId or sessionId must be provided.", new List<string> { "Invalid input parameters." });
             }
 
             // Get or create cart
             var cartResult = await _cartService.GetOrCreateCartAsync(userId, sessionId);
             if (!cartResult.Success || cartResult.Data == null)
             {
-                return ServiceResult<ShoppingCart>.FailureResult("Failed to get or create cart.", cartResult.Errors);
+                return ServiceResult<CartDto>.FailureResult("Failed to get or create cart.", cartResult.Errors);
             }
 
             var cart = await _shoppingCartRepo.GetByIdAsync(cartResult.Data.Id);
             if (cart == null)
             {
-                return ServiceResult<ShoppingCart>.FailureResult("Cart not found after creation.", new List<string> { "Unexpected error." });
+                return ServiceResult<CartDto>.FailureResult("Cart not found after creation.", new List<string> { "Unexpected error." });
+            }
+
+            var product = await _productRepo.GetByIdAsync(productId); // ensure repository returns Product entity
+            if (product == null)
+            {
+                return ServiceResult<CartDto>.FailureResult("Product not found.", new List<string> { "Invalid product ID." });
+            }
+
+            ProductVariant variant = null;
+            if (variantId.HasValue)
+            {
+                variant = await _productVariantRepo.GetByIdAsync(variantId.Value);
+                if (variant == null)
+                {
+                    return ServiceResult<CartDto>.FailureResult("Variant not found.", new List<string> { "Invalid variant ID." });
+                }
+            }
+
+            // choose price (snapshot at add time)
+            decimal unitPrice = 0M;
+            // use variant price if exists, otherwise product sale price or base price
+            if (variant != null && variant.SalePrice > 0) unitPrice = variant.SalePrice;
+            else if (product.SalePrice > 0) unitPrice = product.SalePrice != 0 ? product.SalePrice : 0;
+            else unitPrice = product.BasePrice; // fallback
+
+            // optional: check stock
+            var availableStock = variant?.StockQuantity ?? product.StockQuantity;
+            if (availableStock < quantity)
+            {
+                return ServiceResult<CartDto>.FailureResult("Not enough stock.", new List<string> { "Insufficient stock." });
             }
 
             // Check if item already exists in cart
@@ -69,6 +99,9 @@ public class CartItemService : ICartItemService
             {
                 // Update quantity
                 existingItem.Quantity += quantity;
+                existingItem.UnitPrice = unitPrice;
+                existingItem.TotalPrice = existingItem.UnitPrice * existingItem.Quantity;
+                existingItem.UpdatedAt = DateTime.UtcNow;
                 await _cartItemRepo.UpdateAsync(existingItem);
                 _logger.LogInformation("Updated quantity of existing item in cart {CartId}", cart.Id);
             }
@@ -81,24 +114,31 @@ public class CartItemService : ICartItemService
                     ProductId = productId,
                     VariantId = variantId,
                     Quantity = quantity,
+                    UnitPrice = unitPrice,
+                    TotalPrice = unitPrice * quantity,
                     AddedAt = DateTime.UtcNow
                 };
                 await _cartItemRepo.CreateAsync(newItem);
                 _logger.LogInformation("Added new item to cart {CartId}", cart.Id);
             }
 
-            // Update cart totals
-            cart.ItemsCount += quantity;
-            cart.UpdatedAt = DateTime.UtcNow;
-            await _shoppingCartRepo.UpdateAsync(cart);
+            // 4) recompute cart totals (safer than incremental only)
+            await RecalculateCartTotalsAsync(cart.Id);
+
+            // 5) reload cart with includes and map to dto to return
+            var updatedCart = await _shoppingCartRepo.GetCartWithItemsAsync(cart.Id);
+            await _shoppingCartRepo.UpdateAsync(updatedCart);
+
+            //map to dto
+            var cartDto = CartMapper.MapToDto(updatedCart);
 
             _logger.LogInformation("Successfully added item to cart {CartId}", cart);
-            return ServiceResult<ShoppingCart>.SuccessResult(cart, "Item added to cart successfully.");
+            return ServiceResult<CartDto>.SuccessResult(cartDto, "Item added to cart successfully.");
         }
         catch (System.Exception ex)
         {
             _logger.LogError(ex, "Error adding item to cart for UserId: {UserId}, SessionId: {SessionId}", userId, sessionId);
-            return ServiceResult<ShoppingCart>.FailureResult("Failed to add item to cart.", new List<string> { ex.Message });
+            return ServiceResult<CartDto>.FailureResult("Failed to add item to cart.", new List<string> { ex.Message });
         }
 
     }
@@ -110,7 +150,7 @@ public class CartItemService : ICartItemService
     /// <param name="newQuantity"></param>
     /// <param name="variantId"></param>
     /// <returns></returns>
-    public async Task<ServiceResult<ShoppingCart>> UpdateQuantityAsync(int cartId, int productId, int newQuantity, int? variantId = null)
+    public async Task<ServiceResult<CartDto>> UpdateQuantityAsync(int cartId, int productId, int newQuantity, int? variantId = null)
     {
         try
         {
@@ -120,13 +160,13 @@ public class CartItemService : ICartItemService
             // Validate input
             if (newQuantity < 0)
             {
-                return ServiceResult<ShoppingCart>.FailureResult("Quantity cannot be negative.",
+                return ServiceResult<CartDto>.FailureResult("Quantity cannot be negative.",
                     new List<string> { "Invalid quantity." });
             }
 
             if (cartId <= 0 || productId <= 0)
             {
-                return ServiceResult<ShoppingCart>.FailureResult("Invalid cart or product ID.",
+                return ServiceResult<CartDto>.FailureResult("Invalid cart or product ID.",
                     new List<string> { "Invalid input parameters." });
             }
 
@@ -134,7 +174,7 @@ public class CartItemService : ICartItemService
             var cart = await _shoppingCartRepo.GetByIdAsync(cartId);
             if (cart == null)
             {
-                return ServiceResult<ShoppingCart>.FailureResult("Cart not found.",
+                return ServiceResult<CartDto>.FailureResult("Cart not found.",
                     new List<string> { "Cart does not exist." });
             }
 
@@ -142,7 +182,7 @@ public class CartItemService : ICartItemService
             var cartItem = await _cartItemRepo.GetCartItemAsync(cartId, productId, variantId);
             if (cartItem == null)
             {
-                return ServiceResult<ShoppingCart>.FailureResult("Item not found in cart.",
+                return ServiceResult<CartDto>.FailureResult("Item not found in cart.",
                     new List<string> { "Cart item does not exist." });
             }
 
@@ -167,17 +207,23 @@ public class CartItemService : ICartItemService
 
             // Update cart
             cart.UpdatedAt = DateTime.UtcNow;
-            await _shoppingCartRepo.UpdateAsync(cart);
+            // Sau khi cập nhật quantity
+            var updatedCart = await _shoppingCartRepo.GetCartWithItemsAsync(cart.Id);
+            await _shoppingCartRepo.UpdateAsync(updatedCart);
+
+
+            //map to dto
+            var cartDto = CartMapper.MapToDto(updatedCart);
 
             _logger.LogInformation("Successfully updated cart {CartId}", cartId);
-            return ServiceResult<ShoppingCart>.SuccessResult(cart, "Cart updated successfully.");
+            return ServiceResult<CartDto>.SuccessResult(cartDto, "Cart updated successfully.");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error occurred while updating quantity in cart {CartId} for product {ProductId}",
                 cartId, productId);
 
-            return ServiceResult<ShoppingCart>.FailureResult("An error occurred while updating cart.",
+            return ServiceResult<CartDto>.FailureResult("An error occurred while updating cart.",
                 new List<string> { ex.Message });
         }
     }
@@ -188,7 +234,7 @@ public class CartItemService : ICartItemService
     /// <param name="productId"></param>
     /// <param name="variantId"></param>
     /// <returns></returns>
-    public async Task<ServiceResult<ShoppingCart>> RemoveItemAsync(int cartId, int productId, int? variantId = null)
+    public async Task<ServiceResult<CartDto>> RemoveItemAsync(int cartId, int productId, int? variantId = null)
     {
         try
         {
@@ -198,7 +244,7 @@ public class CartItemService : ICartItemService
             // Validate input
             if (cartId <= 0 || productId <= 0)
             {
-                return ServiceResult<ShoppingCart>.FailureResult("Invalid cart or product ID.",
+                return ServiceResult<CartDto>.FailureResult("Invalid cart or product ID.",
                     new List<string> { "Invalid input parameters." });
             }
 
@@ -206,7 +252,7 @@ public class CartItemService : ICartItemService
             var cart = await _shoppingCartRepo.GetByIdAsync(cartId);
             if (cart == null)
             {
-                return ServiceResult<ShoppingCart>.FailureResult("Cart not found.",
+                return ServiceResult<CartDto>.FailureResult("Cart not found.",
                     new List<string> { "Cart does not exist." });
             }
 
@@ -214,7 +260,7 @@ public class CartItemService : ICartItemService
             var cartItem = await _cartItemRepo.GetCartItemAsync(cartId, productId, variantId);
             if (cartItem == null)
             {
-                return ServiceResult<ShoppingCart>.FailureResult("Item not found in cart.",
+                return ServiceResult<CartDto>.FailureResult("Item not found in cart.",
                     new List<string> { "Cart item does not exist." });
             }
 
@@ -226,17 +272,20 @@ public class CartItemService : ICartItemService
             cart.UpdatedAt = DateTime.UtcNow;
             await _shoppingCartRepo.UpdateAsync(cart);
 
+            //map to dto
+            var cartDto = CartMapper.MapToDto(cart);
+
             _logger.LogInformation("Successfully removed item from cart {CartId}, quantity: {RemovedQuantity}",
                 cartId, removedQuantity);
 
-            return ServiceResult<ShoppingCart>.SuccessResult(cart, "Item removed from cart successfully.");
+            return ServiceResult<CartDto>.SuccessResult(cartDto, "Item removed from cart successfully.");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error occurred while removing item from cart {CartId}, product {ProductId}",
                 cartId, productId);
 
-            return ServiceResult<ShoppingCart>.FailureResult("An error occurred while removing item from cart.",
+            return ServiceResult<CartDto>.FailureResult("An error occurred while removing item from cart.",
                 new List<string> { ex.Message });
         }
     }
@@ -247,7 +296,7 @@ public class CartItemService : ICartItemService
     /// <param name="sessionId"></param>
     /// <param name="items"></param>
     /// <returns></returns>
-    public async Task<ServiceResult<ShoppingCart>> AddMultipleItemsAsync(int? userId, string? sessionId, List<AddToCartRequest> items)
+    public async Task<ServiceResult<CartDto>> AddMultipleItemsAsync(int? userId, string? sessionId, List<AddToCartRequest> items)
     {
         try
         {
@@ -257,13 +306,13 @@ public class CartItemService : ICartItemService
             // Validate input
             if (items == null || !items.Any())
             {
-                return ServiceResult<ShoppingCart>.FailureResult("No items provided.",
+                return ServiceResult<CartDto>.FailureResult("No items provided.",
                     new List<string> { "Items list is empty." });
             }
 
             if (userId == null && string.IsNullOrEmpty(sessionId))
             {
-                return ServiceResult<ShoppingCart>.FailureResult("Either userId or sessionId must be provided.",
+                return ServiceResult<CartDto>.FailureResult("Either userId or sessionId must be provided.",
                     new List<string> { "Invalid input parameters." });
             }
 
@@ -280,20 +329,20 @@ public class CartItemService : ICartItemService
 
             if (errors.Any())
             {
-                return ServiceResult<ShoppingCart>.FailureResult("Invalid items in request.", errors);
+                return ServiceResult<CartDto>.FailureResult("Invalid items in request.", errors);
             }
 
             // Get or create cart
             var cartResult = await _cartService.GetOrCreateCartAsync(userId, sessionId);
             if (!cartResult.Success || cartResult.Data == null)
             {
-                return ServiceResult<ShoppingCart>.FailureResult("Failed to get or create cart.", cartResult.Errors);
+                return ServiceResult<CartDto>.FailureResult("Failed to get or create cart.", cartResult.Errors);
             }
 
             var cart = await _shoppingCartRepo.GetByIdAsync(cartResult.Data.Id);
             if (cart == null)
             {
-                return ServiceResult<ShoppingCart>.FailureResult("Cart not found after creation.",
+                return ServiceResult<CartDto>.FailureResult("Cart not found after creation.",
                     new List<string> { "Unexpected error." });
             }
 
@@ -355,19 +404,22 @@ public class CartItemService : ICartItemService
 
             if (errors.Any() && itemsProcessed == 0)
             {
-                return ServiceResult<ShoppingCart>.FailureResult("Failed to add any items to cart.", errors);
+                return ServiceResult<CartDto>.FailureResult("Failed to add any items to cart.", errors);
             }
 
+            //map to dto
+            var cartDto = CartMapper.MapToDto(cart);
+
             return errors.Any()
-                ? ServiceResult<ShoppingCart>.FailureResult(message, errors)
-                : ServiceResult<ShoppingCart>.SuccessResult(cart, message);
+                ? ServiceResult<CartDto>.FailureResult(message, errors)
+                : ServiceResult<CartDto>.SuccessResult(cartDto, message);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error occurred while adding multiple items to cart for UserId: {UserId}, SessionId: {SessionId}",
                 userId, sessionId);
 
-            return ServiceResult<ShoppingCart>.FailureResult("An error occurred while adding items to cart.",
+            return ServiceResult<CartDto>.FailureResult("An error occurred while adding items to cart.",
                 new List<string> { ex.Message });
         }
     }
@@ -516,4 +568,18 @@ public class CartItemService : ICartItemService
         }
 
     }
+    
+    #region helpers
+        private async Task RecalculateCartTotalsAsync(int cartId)
+    {
+        var cart = await _shoppingCartRepo.GetCartWithItemsAsync(cartId); // include items
+        if (cart == null) throw new Exception("Cart not found when recalculating totals.");
+
+        cart.ItemsCount = cart.CartItems.Sum(i => i.Quantity);
+        cart.Subtotal = cart.CartItems.Sum(i => i.TotalPrice);
+        cart.UpdatedAt = DateTime.UtcNow;
+
+        await _shoppingCartRepo.UpdateAsync(cart);
+    }
+    #endregion
 }

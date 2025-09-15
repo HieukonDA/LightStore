@@ -28,6 +28,7 @@ global using TheLightStore.Models.Inventories;
 global using TheLightStore.Models.Orders_Carts;
 global using TheLightStore.Dtos.Cart;
 global using TheLightStore.Interfaces.Cart;
+global using TheLightStore.Services.Cart;
 
 global using TheLightStore.Models.Blogs;
 
@@ -49,6 +50,8 @@ global using TheLightStore.Models.System;
 global using TheLightStore.Interfaces.Email;
 global using TheLightStore.Services.Email;
 
+global using TheLightStore.Helpers;
+
 // system
 global using Microsoft.EntityFrameworkCore;
 global using System.Text;
@@ -64,3 +67,4 @@ global using System.ComponentModel.DataAnnotations.Schema;
 global using Microsoft.AspNetCore.Mvc;
 global using System.Text.Json;
 global using Microsoft.AspNetCore.Authorization;
+global using System.ComponentModel.DataAnnotations;

@@ -12,7 +12,7 @@ public class CreateProductDto
     public int? BrandId { get; set; }
     public string? ShortDescription { get; set; }
     public string? Description { get; set; }
-    public decimal? SalePrice { get; set; }
+    public decimal SalePrice { get; set; }
     
     // Product Details
     public decimal? Weight { get; set; }

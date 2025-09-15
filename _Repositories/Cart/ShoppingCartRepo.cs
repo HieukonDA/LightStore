@@ -116,6 +116,10 @@ public class ShoppingCartRepo : IShoppingCartRepo
         {
             return await _context.ShoppingCarts
                 .Include(cart => cart.CartItems)
+                    .ThenInclude(ci => ci.Product)
+                        .ThenInclude(p => p.ProductImages)
+                .Include(cart => cart.CartItems)
+                    .ThenInclude(ci => ci.Variant)
                 .FirstOrDefaultAsync(cart => cart.UserId == userId);
         }
         catch (System.Exception ex)
@@ -129,6 +133,10 @@ public class ShoppingCartRepo : IShoppingCartRepo
         {
             return await _context.ShoppingCarts
                 .Include(cart => cart.CartItems)
+                    .ThenInclude(ci => ci.Product)
+                        .ThenInclude(p => p.ProductImages)
+                .Include(cart => cart.CartItems)
+                    .ThenInclude(ci => ci.Variant)
                 .FirstOrDefaultAsync(cart => cart.SessionId == sessionId);
         }
         catch (System.Exception ex)

@@ -1,7 +1,7 @@
 namespace TheLightStore.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/v1/[controller]")]
 public class CartController : ControllerBase
 {
     private readonly ILogger<CartController> _logger;
@@ -35,7 +35,30 @@ public class CartController : ControllerBase
     {
         try
         {
-            var (userId, sessionId) = GetUserAndSessionInfo();
+            // var (userId, sessionId) = GetUserAndSessionInfo();
+
+            int? userId = GetUserId();
+            string? sessionId = Request.Cookies["SessionId"];
+
+            // Debug logs
+            _logger.LogInformation("=== DEBUG GetCart ===");
+            _logger.LogInformation("UserId: {UserId}", userId);
+            _logger.LogInformation("SessionId: {SessionId}", sessionId);
+            _logger.LogInformation("Session.Id: {SessionContextId}", HttpContext.Session.Id);
+            _logger.LogInformation("User.Identity.IsAuthenticated: {IsAuth}", User.Identity.IsAuthenticated);
+
+            if (string.IsNullOrEmpty(sessionId))
+            {
+                sessionId = Guid.NewGuid().ToString();
+                Response.Cookies.Append("SessionId", sessionId, new CookieOptions
+                {
+                    HttpOnly = true,
+                    Secure = true,
+                    SameSite = SameSiteMode.Strict,
+                    Expires = DateTimeOffset.UtcNow.AddDays(7)
+                });
+            }
+
             var result = await _cartService.GetCartAsync(userId, sessionId);
 
             if (!result.Success)
@@ -150,6 +173,7 @@ public class CartController : ControllerBase
             }
 
             var (userId, sessionId) = GetUserAndSessionInfo();
+            _logger.LogInformation("Adding to cart - UserId: {UserId}, SessionId: {SessionId}", userId, sessionId);
             var result = await _cartItemService.AddToCartAsync(userId, sessionId, request.ProductId, request.Quantity, request.VariantId);
 
             if (!result.Success)
@@ -672,14 +696,24 @@ public class CartController : ControllerBase
 
     private string? GetSessionId()
     {
-        // Try to get session ID from header first, then from session
-        var sessionId = Request.Headers["X-Session-ID"].FirstOrDefault();
-        if (string.IsNullOrEmpty(sessionId))
+        // 1. Thử header trước (nếu FE gửi)
+        var headerSessionId = Request.Headers["X-Session-ID"].FirstOrDefault();
+        if (!string.IsNullOrEmpty(headerSessionId))
         {
-            sessionId = HttpContext.Session.Id;
+            return headerSessionId;
         }
-        return sessionId;
+        
+        // 2. Đọc từ cookie SessionId
+        if (Request.Cookies.TryGetValue("SessionId", out var cookieSessionId))
+        {
+            _logger.LogInformation("Using cookie session ID: {SessionId}", cookieSessionId);
+            return cookieSessionId;
+        }
+        
+        // 3. Fallback: ASP.NET Session
+        return HttpContext.Session.Id;
     }
+
 
     #endregion
 }

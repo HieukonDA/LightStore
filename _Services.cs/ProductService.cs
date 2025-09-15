@@ -390,7 +390,7 @@ public class ProductService : IProductService
         }
 
         // Business logic validation
-        if (dto.SalePrice.HasValue && dto.SalePrice > dto.BasePrice)
+        if (dto.SalePrice != null && dto.SalePrice > dto.BasePrice)
         {
             errors.Add("Sale price cannot be greater than base price");
         }
@@ -466,7 +466,7 @@ public class ProductService : IProductService
         }
 
         // Business logic validation
-        if (dto.SalePrice.HasValue && dto.BasePrice != null && dto.SalePrice > dto.BasePrice)
+        if (dto.SalePrice != null && dto.BasePrice != null && dto.SalePrice > dto.BasePrice)
         {
             errors.Add("Sale price cannot be greater than base price");
         }
@@ -674,7 +674,7 @@ public class ProductService : IProductService
         if (dto.BasePrice != null)
             existingProduct.BasePrice = dto.BasePrice;
 
-        if (dto.SalePrice.HasValue)
+        if (dto.SalePrice != null)
             existingProduct.SalePrice = dto.SalePrice;
 
         if (dto.Weight.HasValue)

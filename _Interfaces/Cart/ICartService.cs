@@ -11,10 +11,10 @@ public interface ICartService
 
 public interface ICartItemService
 {
-    Task<ServiceResult<ShoppingCart>> AddToCartAsync(int? userId, string? sessionId, int productId, int quantity, int? variantId = null);
-    Task<ServiceResult<ShoppingCart>> UpdateQuantityAsync(int cartId, int productId, int newQuantity, int? variantId = null);
-    Task<ServiceResult<ShoppingCart>> RemoveItemAsync(int cartId, int productId, int? variantId = null);
-    Task<ServiceResult<ShoppingCart>> AddMultipleItemsAsync(int? userId, string? sessionId, List<AddToCartRequest> items);
+    Task<ServiceResult<CartDto>> AddToCartAsync(int? userId, string? sessionId, int productId, int quantity, int? variantId = null);
+    Task<ServiceResult<CartDto>> UpdateQuantityAsync(int cartId, int productId, int newQuantity, int? variantId = null);
+    Task<ServiceResult<CartDto>> RemoveItemAsync(int cartId, int productId, int? variantId = null);
+    Task<ServiceResult<CartDto>> AddMultipleItemsAsync(int? userId, string? sessionId, List<AddToCartRequest> items);
 
     Task<ServiceResult<CartSummaryDto>> GetCartSummaryAsync(int cartId);
     Task<ServiceResult<List<CartItemDto>>> GetCartItemsAsync(int cartId);

@@ -54,4 +54,5 @@ public class User
     public virtual ICollection<SavedCart> SavedCarts { get; set; } = new List<SavedCart>();
 
     public virtual ShoppingCart? ShoppingCart { get; set; }
+    public virtual ICollection<UserRole> UserRoles { get; set; } = new List<UserRole>();
 }

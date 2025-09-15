@@ -11,10 +11,11 @@ public class AuthService : IAuthService
     private readonly IConfiguration _configuration;
     private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly IEmailService _emailService;
+    private readonly IRbacService _rbacService;
     private static readonly Dictionary<string, OtpData> _otpCache = new();
     private static readonly object _cacheLock = new();
 
-    public AuthService(DBContext context, IUserRepo userRepo, ILogger<AuthService> logger, IConfiguration configuration, IHttpContextAccessor httpContextAccessor, IEmailService emailService)
+    public AuthService(DBContext context, IUserRepo userRepo, ILogger<AuthService> logger, IConfiguration configuration, IHttpContextAccessor httpContextAccessor, IEmailService emailService, IRbacService rbacService)
     {
         _context = context;
         _userRepo = userRepo;
@@ -22,6 +23,7 @@ public class AuthService : IAuthService
         _configuration = configuration;
         _httpContextAccessor = httpContextAccessor;
         _emailService = emailService;
+        _rbacService = rbacService;
     }
 
     #region implement interfaces
@@ -75,7 +77,8 @@ public class AuthService : IAuthService
                     LastName = user.LastName,
                     Phone = user.Phone,
                     UserType = user.UserType,
-                    CreatedAt = user.CreatedAt
+                    CreatedAt = user.CreatedAt,
+                    Roles = await _rbacService.GetUserRolesAsync(user.Id)
                 }
             };
 

@@ -1,4 +1,5 @@
 namespace TheLightStore.Dtos.Cart;
+
 public class CartDto
 {
     public int Id { get; set; }
@@ -8,4 +9,5 @@ public class CartDto
     public decimal Subtotal { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
+    public List<CartItemDto> CartItems { get; set; } = new();
 }

@@ -1,7 +1,5 @@
 
-
-
-
+using TheLightStore.Services.Auth;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -59,7 +57,8 @@ builder.Services.AddCors(options =>
                 "http://localhost:5264"      // Swagger UI (http)
             ) // domain frontend
                   .AllowAnyHeader()
-                  .AllowAnyMethod();
+                  .AllowAnyMethod()
+                  .AllowCredentials(); 
         });
 });
 
@@ -77,10 +76,25 @@ builder.Services.AddIdentityCore<IdentityUser>(options =>
 .AddDefaultTokenProviders();
 builder.Services.AddHttpContextAccessor();
 
+//session
+builder.Services.AddDistributedMemoryCache(); // cần cho session
+builder.Services.AddSession(options =>
+{
+    options.IdleTimeout = TimeSpan.FromMinutes(30); // thời gian hết hạn session
+    options.Cookie.HttpOnly = true;
+    options.Cookie.IsEssential = true; // bắt buộc cho GDPR
+    options.Cookie.SameSite = SameSiteMode.None;
+    options.Cookie.SecurePolicy = CookieSecurePolicy.None; 
+});
+
+
 
 // Swagger
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+// Add Memory Cache for RBAC
+builder.Services.AddMemoryCache();
 
 // DI Services
 builder.Services.AddScoped<IAuthService, AuthService>();
@@ -89,7 +103,19 @@ builder.Services.AddScoped<ICategoryService, CategoryService>();
 builder.Services.AddScoped<ICategoryRepo, CategoryRepo>();
 builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<IProductRepo, ProductRepo>();
+builder.Services.AddScoped<IProductVariantRepo, ProductVariantRepo>();
 builder.Services.AddScoped<IEmailService, EmailService>();
+builder.Services.AddScoped<IRbacService, RbacService>();
+builder.Services.AddScoped<ICartService, CartService>();
+builder.Services.AddScoped<ICartItemService, CartItemService>();
+builder.Services.AddScoped<ICartSaveService, CartSavedService>();
+builder.Services.AddScoped<ICartValidationService, CartValidationService>();
+builder.Services.AddScoped<ICartItemRepo, CartItemRepo>();
+builder.Services.AddScoped<ISavedCartRepo, SavedCartRepo>();
+builder.Services.AddScoped<IShoppingCartRepo, ShoppingCartRepo>();
+
+builder.Services.AddSingleton<IpRateLimitService>();
+
 
 
 var app = builder.Build();
@@ -106,11 +132,12 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();  // 1. HTTPS redirect trước
 app.UseCors("AllowFrontend");
-app.UseRateLimiter();
+
+app.UseSession();           // 4. Session
 app.UseAuthentication();    // 2. Authentication
 app.UseAuthorization();     // 3. Authorization  
-      // 4. Rate limiting
 
+app.UseRateLimiter();
 app.MapControllers();       // 5. Map controllers
 // app.MapIdentityApi<IdentityUser>(); // 6. Map Identity API
 

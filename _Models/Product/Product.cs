@@ -20,7 +20,7 @@ public class Product
 
     public decimal BasePrice { get; set; }
 
-    public decimal? SalePrice { get; set; }
+    public decimal SalePrice { get; set; }
 
     public decimal? Weight { get; set; }
 
