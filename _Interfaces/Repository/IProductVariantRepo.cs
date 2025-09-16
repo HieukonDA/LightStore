@@ -1,3 +1,6 @@
+using Microsoft.EntityFrameworkCore.Storage;
+using TheLightStore.Dtos.Product;
+
 namespace TheLightStore.Interfaces.Repository;
 
 public interface IProductVariantRepo
@@ -10,4 +13,7 @@ public interface IProductVariantRepo
     Task<ProductVariant> UpdateAsync(ProductVariant productVariant);
     Task<bool> DeleteAsync(int id);
     Task<bool> UpdateStockAsync(int variantId, int quantity);
+    Task<Dictionary<int, ProductAvailabilityInfo>> GetVariantsAvailabilityWithLockAsync(
+        List<int> variantIds,
+        IDbContextTransaction transaction);
 }

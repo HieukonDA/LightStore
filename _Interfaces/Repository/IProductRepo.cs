@@ -1,4 +1,7 @@
 namespace TheLightStore.Interfaces.Repository;
+
+using Microsoft.EntityFrameworkCore.Storage;
+using TheLightStore.Dtos.Product;
 using TheLightStore.Models.Products;
 public interface IProductRepo
 {
@@ -31,4 +34,7 @@ public interface IProductRepo
     // Task IncrementViewCountAsync(int productId);
     // Task<IEnumerable<Product>> GetMostViewedAsync(int count = 10);
     // Task<IEnumerable<Product>> GetTopRatedAsync(int count = 10);
+
+    Task<Dictionary<int, ProductAvailabilityInfo>> GetProductsAvailabilityWithLockAsync(
+        List<int> productIds, IDbContextTransaction transaction);
 }

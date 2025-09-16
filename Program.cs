@@ -1,5 +1,10 @@
 
+using TheLightStore.Interfaces.Inventory;
+using TheLightStore.Interfaces.Notification;
+using TheLightStore.Interfaces.Repository;
 using TheLightStore.Services.Auth;
+using TheLightStore.Services.BackgroundJobs;
+using TheLightStore.Services.Inventory;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -84,8 +89,23 @@ builder.Services.AddSession(options =>
     options.Cookie.HttpOnly = true;
     options.Cookie.IsEssential = true; // bắt buộc cho GDPR
     options.Cookie.SameSite = SameSiteMode.None;
-    options.Cookie.SecurePolicy = CookieSecurePolicy.None; 
+    options.Cookie.SecurePolicy = CookieSecurePolicy.None;
 });
+
+//connect momo api
+builder.Services.Configure<MomoOptionModel>(builder.Configuration.GetSection("MomoAPI"));
+builder.Services.AddHttpClient();
+builder.Services.AddScoped<IMomoService, MomoService>();
+
+
+builder.Services.AddHostedService<InventoryCleanupJob>();
+
+builder.Services.AddScoped<IInventoryService, InventoryService>();
+// builder.Services.AddScoped<IStockService, StockService>();
+
+builder.Services.AddHostedService<InventoryCleanupJob>();
+
+builder.Services.AddScoped<IInventoryLogRepo, InventoryLogRepo>();
 
 
 
@@ -113,6 +133,10 @@ builder.Services.AddScoped<ICartValidationService, CartValidationService>();
 builder.Services.AddScoped<ICartItemRepo, CartItemRepo>();
 builder.Services.AddScoped<ISavedCartRepo, SavedCartRepo>();
 builder.Services.AddScoped<IShoppingCartRepo, ShoppingCartRepo>();
+
+// Inventory reservation
+builder.Services.AddScoped<IInventoryReservationRepo, InventoryReservationRepo>();
+
 
 builder.Services.AddSingleton<IpRateLimitService>();
 

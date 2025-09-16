@@ -17,6 +17,7 @@ public partial class OrderPayment
     public string? TransactionId { get; set; }
 
     public string? GatewayResponse { get; set; }
+    public Guid  PaymentRequestId { get; set; }
 
     public DateTime? PaidAt { get; set; }
 

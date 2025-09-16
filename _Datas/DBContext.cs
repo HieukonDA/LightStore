@@ -1,5 +1,6 @@
 namespace TheLightStore.Datas;
 using TheLightStore.Models.Attributes;
+using Microsoft.EntityFrameworkCore;
 
 
 public partial class DBContext : DbContext

@@ -1,4 +1,7 @@
 
+using Microsoft.EntityFrameworkCore.Storage;
+using TheLightStore.Dtos.Product;
+
 namespace TheLightStore.Repositories.Products;
 
 public class ProductRepo : IProductRepo
@@ -189,11 +192,38 @@ public class ProductRepo : IProductRepo
             PageSize = pagedRequest.Size
         };
     }
+    
+    public async Task<Dictionary<int, ProductAvailabilityInfo>> GetProductsAvailabilityWithLockAsync(
+        List<int> productIds,
+        IDbContextTransaction transaction)
+    {
+        if (productIds == null || productIds.Count == 0)
+            return new Dictionary<int, ProductAvailabilityInfo>();
+
+        // ⚠️ SQL Server: dùng WITH (UPDLOCK, ROWLOCK)
+        var sql = $@"
+            SELECT Id, StockQuantity
+            FROM Products WITH (UPDLOCK, ROWLOCK)
+            WHERE Id IN ({string.Join(",", productIds)})
+        ";
+
+        var result = await _context.Products
+            .FromSqlRaw(sql)
+            .Select(p => new ProductAvailabilityInfo
+            {
+                ProductId = p.Id,
+                VariantId = null,
+                AvailableQuantity = p.StockQuantity
+            })
+            .ToDictionaryAsync(x => x.ProductId);
+
+        return result;
+    }
 
     #endregion
 
     #region balabala
-    
+
     #endregion
 
 }

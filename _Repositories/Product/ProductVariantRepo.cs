@@ -1,3 +1,6 @@
+using Microsoft.EntityFrameworkCore.Storage;
+using TheLightStore.Dtos.Product;
+
 namespace TheLightStore.Repositories.Products;
 
 public class ProductVariantRepo : IProductVariantRepo
@@ -63,5 +66,31 @@ public class ProductVariantRepo : IProductVariantRepo
         _context.ProductVariants.Update(variant);
         await _context.SaveChangesAsync();
         return true;
+    }
+
+    public async Task<Dictionary<int, ProductAvailabilityInfo>> GetVariantsAvailabilityWithLockAsync(
+        List<int> variantIds,
+        IDbContextTransaction transaction)
+    {
+        if (variantIds == null || variantIds.Count == 0)
+            return new Dictionary<int, ProductAvailabilityInfo>();
+
+        var sql = $@"
+            SELECT Id, ProductId, StockQuantity
+            FROM ProductVariants WITH (UPDLOCK, ROWLOCK)
+            WHERE Id IN ({string.Join(",", variantIds)})
+        ";
+
+        var result = await _context.ProductVariants
+            .FromSqlRaw(sql)
+            .Select(v => new ProductAvailabilityInfo
+            {
+                ProductId = v.ProductId,
+                VariantId = v.Id,
+                AvailableQuantity = (int)v.StockQuantity
+            })
+            .ToDictionaryAsync(x => x.VariantId!.Value);
+
+        return result;
     }
 }

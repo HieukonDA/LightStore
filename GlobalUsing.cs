@@ -52,6 +52,16 @@ global using TheLightStore.Services.Email;
 
 global using TheLightStore.Helpers;
 
+global using TheLightStore.Repositories.InventoryTransaction;
+global using TheLightStore.Dtos.Inventory;
+global using TheLightStore.Interfaces.Inventory;
+
+global using TheLightStore.Constants;
+
+global using TheLightStore.Interfaces.Momo;
+global using TheLightStore.Models.Momo;
+global using TheLightStore.Services.Momo;
+
 // system
 global using Microsoft.EntityFrameworkCore;
 global using System.Text;
