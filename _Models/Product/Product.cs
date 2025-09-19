@@ -62,17 +62,24 @@ public class Product
 
     public virtual Category Category { get; set; } = null!;
 
+    [JsonIgnore]  
     public virtual ICollection<InventoryLog> InventoryLogs { get; set; } = new List<InventoryLog>();
 
+    [JsonIgnore]
     public virtual ICollection<InventoryReservation> InventoryReservations { get; set; } = new List<InventoryReservation>();
 
+    [JsonIgnore]  
     public virtual ICollection<OrderItem> OrderItems { get; set; } = new List<OrderItem>();
 
+    [JsonIgnore]
     public virtual ICollection<ProductAttribute> ProductAttributes { get; set; } = new List<ProductAttribute>();
 
+    [JsonIgnore]
     public virtual ICollection<ProductImage> ProductImages { get; set; } = new List<ProductImage>();
 
+    [JsonIgnore]
     public virtual ICollection<ProductReview> ProductReviews { get; set; } = new List<ProductReview>();
 
+    [JsonIgnore]
     public virtual ICollection<ProductVariant> ProductVariants { get; set; } = new List<ProductVariant>();
 }

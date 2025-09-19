@@ -178,7 +178,7 @@ public class InventoryService : IInventoryService
                     VariantId = item.VariantId,
                     Quantity = item.Quantity,
                     ReservedUntil = DateTime.UtcNow.AddMinutes(_reservationTimeoutMinutes),
-                    Status = InventoryStatus.Reserved,
+                    Status = InventoryStatus.Active,
                     OrderId = int.TryParse(orderId, out var orderIdInt) ? orderIdInt : null,
                     CreatedAt = DateTime.UtcNow
                 };
@@ -223,12 +223,12 @@ public class InventoryService : IInventoryService
             }
 
             var reservations = await _reservationRepo.GetByOrderIdAsync(orderIdInt);
-            var reservedItems = reservations.Where(x => x.Status == InventoryStatus.Reserved).ToList();
+            var reservedItems = reservations.Where(x => x.Status == InventoryStatus.Active).ToList();
 
             foreach (var reservation in reservedItems)
             {
                 // Update reservation status
-                reservation.Status = InventoryStatus.Committed;
+                reservation.Status = InventoryStatus.Completed;
                 await _reservationRepo.UpdateAsync(reservation);
 
                 // Update actual stock
@@ -263,14 +263,14 @@ public class InventoryService : IInventoryService
 
             var reservations = await _reservationRepo.GetByOrderIdAsync(orderIdInt);
             var activeReservations = reservations.Where(x =>
-                x.Status == InventoryStatus.Reserved || x.Status == InventoryStatus.Committed).ToList();
+                x.Status == InventoryStatus.Active || x.Status == InventoryStatus.Completed).ToList();
 
             foreach (var reservation in activeReservations)
             {
-                reservation.Status = InventoryStatus.Released;
+                reservation.Status = InventoryStatus.Cancelled;
                 await _reservationRepo.UpdateAsync(reservation);
 
-                if (reservation.Status == InventoryStatus.Committed)
+                if (reservation.Status == InventoryStatus.Completed)
                 {
                     await UpdateStockQuantityAsync(reservation.ProductId, reservation.VariantId, +reservation.Quantity);
                 }
@@ -301,7 +301,7 @@ public class InventoryService : IInventoryService
 
             foreach (var reservation in expiredReservations)
             {
-                if (reservation.Status == InventoryStatus.Reserved)
+                if (reservation.Status == InventoryStatus.Active)
                 {
                     reservation.Status = InventoryStatus.Expired;
                     await _reservationRepo.UpdateAsync(reservation);

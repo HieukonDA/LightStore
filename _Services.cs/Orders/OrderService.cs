@@ -1,4 +1,6 @@
+using TheLightStore.Dtos.Orders;
 using TheLightStore.DTOs.Orders;
+using TheLightStore.Interfaces.Notifications;
 using TheLightStore.Interfaces.Orders;
 using TheLightStore.Interfaces.Payment;
 
@@ -11,7 +13,7 @@ public class OrderService : IOrderService
     private readonly IOrderStatusHistoryRepo _statusHistoryRepo;
     private readonly IInventoryService _inventoryService;
     private readonly IPaymentService _paymentService;
-    // private readonly INotificationService _notificationService;
+    private readonly INotificationService _notificationService;
     private readonly ILogger<OrderService> _logger;
 
     public OrderService(
@@ -20,7 +22,7 @@ public class OrderService : IOrderService
         IOrderStatusHistoryRepo statusHistoryRepo,
         IInventoryService inventoryService,
         IPaymentService paymentService,
-        // INotificationService notificationService,
+        INotificationService notificationService,
         ILogger<OrderService> logger)
     {
         _orderRepo = orderRepo;
@@ -28,161 +30,370 @@ public class OrderService : IOrderService
         _statusHistoryRepo = statusHistoryRepo;
         _inventoryService = inventoryService;
         _paymentService = paymentService;
-        // _notificationService = notificationService;
+        _notificationService = notificationService;
         _logger = logger;
     }
 
-    public async Task<Order> CreateOrderAsync(OrderCreateDto dto, CancellationToken ct = default)
+    public async Task<ServiceResult<OrderDto>> CreateOrderAsync(OrderCreateDto dto, CancellationToken ct = default)
     {
-        // 1. Tạo Order (Pending)
-        var order = new Order
+        try
         {
-            UserId = dto.UserId ?? 0,
-            OrderNumber = GenerateOrderNumber(),
-            CustomerName = dto.CustomerName,
-            CustomerEmail = dto.CustomerEmail,
-            CustomerPhone = dto.CustomerPhone,
-            Subtotal = dto.Items.Sum(i => i.UnitPrice * i.Quantity),
-            TotalAmount = CalculateOrderTotal(dto),
-            TaxAmount = dto.TaxAmount,
-            ShippingCost = dto.ShippingCost,
-            DiscountAmount = dto.DiscountAmount,
-            OrderStatus = "PENDING",
-            CustomerNotes = dto.CustomerNotes,
-            OrderDate = DateTime.UtcNow,
-            OrderItems = dto.Items.Select(i => new OrderItem
+            Console.WriteLine($"[INFO] Starting order creation for user {dto.UserId} with {dto.Items?.Count ?? 0} items");
+            _logger.LogInformation("Starting order creation for user {UserId} with {ItemCount} items",
+                    dto.UserId, dto.Items?.Count ?? 0);
+
+            // 1. Tạo Order (Pending)
+            var order = new Order
             {
-                ProductId = i.ProductId,
-                VariantId = i.VariantId,
-                Quantity = i.Quantity,
-                UnitPrice = i.UnitPrice,                           // ✅ thay Price -> UnitPrice
-                TotalPrice = i.UnitPrice * i.Quantity,
-                ProductName = i.ProductName,                       // ✅ cần có trong DTO
-                ProductSku = i.ProductSku,                         // ✅ cần có trong DTO
-                VariantName = i.VariantName,                       // ✅ nếu có
-                ProductAttributes = i.ProductAttributes
-            }).ToList()
-        };
+                UserId = dto.UserId,
+                OrderNumber = GenerateOrderNumber(),
+                CustomerName = dto.CustomerName,
+                CustomerEmail = dto.CustomerEmail,
+                CustomerPhone = dto.CustomerPhone,
+                Subtotal = dto.Items.Sum(i => i.UnitPrice * i.Quantity),
+                TotalAmount = CalculateOrderTotal(dto),
+                TaxAmount = dto.TaxAmount,
+                ShippingCost = dto.ShippingCost,
+                DiscountAmount = dto.DiscountAmount,
+                OrderStatus = OrderStatus.Pending,
+                CustomerNotes = dto.CustomerNotes,
+                OrderDate = DateTime.UtcNow,
+                OrderItems = dto.Items.Select(i => new OrderItem
+                {
+                    ProductId = i.ProductId,
+                    VariantId = i.VariantId,
+                    Quantity = i.Quantity,
+                    UnitPrice = i.UnitPrice,
+                    TotalPrice = i.UnitPrice * i.Quantity,
+                    ProductName = i.ProductName,
+                    ProductSku = i.ProductSku,
+                    VariantName = i.VariantName,
+                    ProductAttributes = i.ProductAttributes
+                }).ToList(),
+                OrderPayments = new List<OrderPayment>()
+            };
 
-        await _orderRepo.AddAsync(order, ct);
-        await _orderRepo.SaveChangesAsync(ct);
+            await _orderRepo.AddAsync(order, ct);
+            await _orderRepo.SaveChangesAsync(ct);
 
-        // 2. Reserve Stock
-        var reserveResults = await _inventoryService.ReserveStockForOrderAsync(
-            order.Id.ToString(),
-            dto.Items.Select(i => new ReserveStockRequest
+            // 2. Reserve Stock
+            var reserveResults = await _inventoryService.ReserveStockForOrderAsync(
+                order.Id.ToString(),
+                dto.Items.Select(i => new ReserveStockRequest
+                {
+                    ProductId = i.ProductId,
+                    VariantId = i.VariantId,
+                    Quantity = i.Quantity
+                }).ToList()
+            );
+
+            if (reserveResults.Any(r => !r.Success))
             {
-                ProductId = i.ProductId,
-                VariantId = i.VariantId,
-                Quantity = i.Quantity
-            }).ToList()
-        );
+                Console.WriteLine("[ERROR] One or more items are out of stock.");
+                return ServiceResult<OrderDto>.FailureResult("One or more items are out of stock.", 
+                    new List<string> { "OutOfStock" });
+            }
 
-        if (reserveResults.Any(r => !r.Success))
-        {
-            throw new InvalidOperationException("One or more items are out of stock.");
+            // 3. Create Pending Payment
+            var payment = await _paymentService.CreatePaymentAsync(order.Id, order.TotalAmount, dto.PaymentMethod);
+
+            var orderDto = CartMapper.MapOrderToDto(order);
+            
+            _logger.LogInformation("Payment created with QrCodeUrl: {QrCodeUrl}, CheckoutUrl: {CheckoutUrl}", payment.QrCodeUrl, payment.CheckoutUrl);
+
+            orderDto.Payment.QrCodeUrl = payment.QrCodeUrl;
+            orderDto.Payment.CheckoutUrl = payment.CheckoutUrl;
+            await _orderRepo.SaveChangesAsync(ct);
+            
+            // // 4. Update Order status -> WAITING_FOR_PAYMENT
+            // order.OrderStatus = OrderStatus.Processing;
+            // await _orderRepo.UpdateAsync(order, ct);
+            // await _orderRepo.SaveChangesAsync(ct);
+
+            // // 5. Add status history
+            // await _statusHistoryRepo.AddAsync(new OrderStatusHistory
+            // {
+            //     OrderId = order.Id,
+            //     OldStatus = null,
+            //     NewStatus = order.OrderStatus,
+            //     Comment = "Waiting for payment",
+            //     ChangedAt = DateTime.UtcNow
+            // }, ct);
+            // await _orderRepo.SaveChangesAsync(ct);
+
+            // Console.WriteLine("[SUCCESS] Order created successfully.");
+            return ServiceResult<OrderDto>.SuccessResult(orderDto, "Order created successfully.");
         }
-
-        // 3. Create Pending Payment
-        var payment = await _paymentService.CreatePaymentAsync(order.Id, order.TotalAmount, dto.PaymentMethod);
-
-        // 4. Update Order status -> WAITING_FOR_PAYMENT
-        order.OrderStatus = "WAITING_FOR_PAYMENT";
-        await _orderRepo.UpdateAsync(order, ct);
-        await _orderRepo.SaveChangesAsync(ct);
-
-        // 5. Add status history
-        await _statusHistoryRepo.AddAsync(new OrderStatusHistory
+        catch (Exception ex)
         {
-            OrderId = order.Id,
-            OldStatus = null, // lúc tạo đơn hàng thì chưa có trạng thái cũ
-            NewStatus = order.OrderStatus, // dùng Order.OrderStatus hiện tại
-            Comment = "Waiting for payment", // thay cho Notes
-            ChangedAt = DateTime.UtcNow
-        }, ct);
-        await _orderRepo.SaveChangesAsync(ct);
+            Console.WriteLine($"[EXCEPTION] {ex.Message}");
+            _logger.LogError(ex, "Error creating order for user {UserId}", dto.UserId);
 
-        return order;
+            return ServiceResult<OrderDto>.FailureResult("Failed to create order", 
+                new List<string> { ex.Message });
+        }
     }
 
-    public Task<Order?> GetOrderByIdAsync(int orderId, CancellationToken ct = default)
-        => _orderRepo.GetByIdAsync(orderId);
 
-    public Task<IEnumerable<Order>> GetOrdersByUserAsync(int userId, CancellationToken ct = default)
-        => _orderRepo.GetByUserIdAsync(userId);
-
-    public async Task ConfirmOrderAsync(int orderId, string? adminNotes = null, CancellationToken ct = default)
+    public async Task<ServiceResult<Order?>> GetOrderByIdAsync(int orderId, CancellationToken ct = default)
     {
-        var order = await _orderRepo.GetByIdAsync(orderId) ?? throw new KeyNotFoundException();
-        order.OrderStatus = "CONFIRMED";
-        await _orderRepo.UpdateAsync(order, ct);
-        await _statusHistoryRepo.AddAsync(new OrderStatusHistory
+        try
         {
-            OrderId = order.Id,
-            OldStatus = null, // lúc tạo đơn hàng thì chưa có trạng thái cũ
-            NewStatus = order.OrderStatus, // dùng Order.OrderStatus hiện tại
-            Comment = "Waiting for payment", // thay cho Notes
-            ChangedAt = DateTime.UtcNow
-        }, ct);
-        await _orderRepo.SaveChangesAsync(ct);
+            if (orderId <= 0)
+            {
+                Console.WriteLine("[ERROR] Invalid orderId");
+                return ServiceResult<Order?>.FailureResult("Invalid orderId", new List<string> { "orderId must be greater than 0" });
+            }
+
+            var order = await _orderRepo.GetByIdAsync(orderId, ct);
+            if (order == null)
+            {
+                Console.WriteLine("[ERROR] Order not found");
+                return ServiceResult<Order?>.FailureResult("Order not found", new List<string> { $"Order {orderId} does not exist" });
+            }
+
+            Console.WriteLine("[SUCCESS] Order retrieved successfully");
+            return ServiceResult<Order?>.SuccessResult(order, "Order retrieved successfully");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[EXCEPTION] {ex.Message}");
+            _logger.LogError(ex, "Error getting order {OrderId}", orderId);
+            return ServiceResult<Order?>.FailureResult("Failed to get order", new List<string> { ex.Message });
+        }
     }
 
-    public async Task ShipOrderAsync(int orderId, string? trackingNumber = null, CancellationToken ct = default)
+    public async Task<ServiceResult<IEnumerable<Order>>> GetOrdersByUserAsync(int userId, CancellationToken ct = default)
     {
-        var order = await _orderRepo.GetByIdAsync(orderId) ?? throw new KeyNotFoundException();
-        order.OrderStatus = "SHIPPED";
-        order.OrderNumber = trackingNumber;
-        await _orderRepo.UpdateAsync(order, ct);
-        await _statusHistoryRepo.AddAsync(new OrderStatusHistory
+        try
         {
-            OrderId = order.Id,
-            OldStatus = null, // lúc tạo đơn hàng thì chưa có trạng thái cũ
-            NewStatus = order.OrderStatus, // dùng Order.OrderStatus hiện tại
-            Comment = "Waiting for payment", // thay cho Notes
-            ChangedAt = DateTime.UtcNow
-        }, ct);
-        await _orderRepo.SaveChangesAsync(ct);
+            if (userId <= 0)
+            {
+                Console.WriteLine("[ERROR] Invalid userId");
+                return ServiceResult<IEnumerable<Order>>.FailureResult("Invalid userId", new List<string> { "userId must be greater than 0" });
+            }
+
+            var orders = await _orderRepo.GetByUserIdAsync(userId, ct);
+            if (orders == null || !orders.Any())
+            {
+                Console.WriteLine("[ERROR] No orders found for user");
+                return ServiceResult<IEnumerable<Order>>.FailureResult("No orders found for user", new List<string> { $"User {userId} has no orders" });
+            }
+
+            Console.WriteLine("[SUCCESS] Orders retrieved successfully");
+            return ServiceResult<IEnumerable<Order>>.SuccessResult(orders, "Orders retrieved successfully");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[EXCEPTION] {ex.Message}");
+            _logger.LogError(ex, "Error getting orders for user {UserId}", userId);
+            return ServiceResult<IEnumerable<Order>>.FailureResult("Failed to get orders", new List<string> { ex.Message });
+        }
     }
 
-    public async Task DeliverOrderAsync(int orderId, CancellationToken ct = default)
+
+    public async Task<ServiceResult<bool>> ConfirmOrderAsync(int orderId, string? adminNotes = null, CancellationToken ct = default)
     {
-        var order = await _orderRepo.GetByIdAsync(orderId) ?? throw new KeyNotFoundException();
-        order.OrderStatus = "DELIVERED";
-        await _orderRepo.UpdateAsync(order, ct);
-        await _statusHistoryRepo.AddAsync(new OrderStatusHistory
+        try
         {
-            OrderId = order.Id,
-            OldStatus = null, // lúc tạo đơn hàng thì chưa có trạng thái cũ
-            NewStatus = order.OrderStatus, // dùng Order.OrderStatus hiện tại
-            Comment = "Waiting for payment", // thay cho Notes
-            ChangedAt = DateTime.UtcNow
-        }, ct);
-        await _orderRepo.SaveChangesAsync(ct);
+            if (orderId <= 0)
+            {
+                Console.WriteLine("[ERROR] Invalid orderId");
+                return ServiceResult<bool>.FailureResult("Invalid orderId", new List<string> { "orderId must be greater than 0" });
+            }
+
+            var order = await _orderRepo.GetByIdAsync(orderId, ct);
+            if (order == null)
+            {
+                Console.WriteLine("[ERROR] Order not found");
+                return ServiceResult<bool>.FailureResult("Order not found", new List<string> { $"Order {orderId} does not exist" });
+            }
+
+            order.OrderStatus = OrderStatus.Confirmed;
+            await _orderRepo.UpdateAsync(order, ct);
+            await _statusHistoryRepo.AddAsync(new OrderStatusHistory
+            {
+                OrderId = order.Id,
+                OldStatus = null,
+                NewStatus = order.OrderStatus,
+                Comment = adminNotes ?? "Order confirmed",
+                ChangedAt = DateTime.UtcNow
+            }, ct);
+            await _orderRepo.SaveChangesAsync(ct);
+
+            Console.WriteLine("[SUCCESS] Order confirmed successfully");
+            return ServiceResult<bool>.SuccessResult(true, "Order confirmed successfully");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[EXCEPTION] {ex.Message}");
+            _logger.LogError(ex, "Error confirming order {OrderId}", orderId);
+            return ServiceResult<bool>.FailureResult("Failed to confirm order", new List<string> { ex.Message });
+        }
     }
 
-    public async Task CancelOrderAsync(int orderId, string? reason = null, CancellationToken ct = default)
+    public async Task<ServiceResult<bool>> ShipOrderAsync(int orderId, string? trackingNumber = null, CancellationToken ct = default)
     {
-        var order = await _orderRepo.GetByIdAsync(orderId) ?? throw new KeyNotFoundException();
-        order.OrderStatus = "CANCELLED";
-        await _orderRepo.UpdateAsync(order, ct);
-
-        // Release stock if reserved
-        await _inventoryService.ReleaseReservationsAsync(order.Id.ToString());
-
-        await _statusHistoryRepo.AddAsync(new OrderStatusHistory
+        try
         {
-            OrderId = order.Id,
-            OldStatus = null, // lúc tạo đơn hàng thì chưa có trạng thái cũ
-            NewStatus = order.OrderStatus, // dùng Order.OrderStatus hiện tại
-            Comment = "Waiting for payment", // thay cho Notes
-            ChangedAt = DateTime.UtcNow
-        }, ct);
+            if (orderId <= 0)
+            {
+                Console.WriteLine("[ERROR] Invalid orderId");
+                return ServiceResult<bool>.FailureResult("Invalid orderId", new List<string> { "orderId must be greater than 0" });
+            }
 
-        await _orderRepo.SaveChangesAsync(ct);
+            var order = await _orderRepo.GetByIdAsync(orderId, ct);
+            if (order == null)
+            {
+                Console.WriteLine("[ERROR] Order not found");
+                return ServiceResult<bool>.FailureResult("Order not found", new List<string> { $"Order {orderId} does not exist" });
+            }
+
+            order.OrderStatus = OrderStatus.Shipping;
+            order.OrderNumber = trackingNumber ?? order.OrderNumber;
+            await _orderRepo.UpdateAsync(order, ct);
+            await _statusHistoryRepo.AddAsync(new OrderStatusHistory
+            {
+                OrderId = order.Id,
+                OldStatus = null,
+                NewStatus = order.OrderStatus,
+                Comment = $"Shipped with tracking {trackingNumber ?? "N/A"}",
+                ChangedAt = DateTime.UtcNow
+            }, ct);
+            await _orderRepo.SaveChangesAsync(ct);
+
+            Console.WriteLine("[SUCCESS] Order shipped successfully");
+            return ServiceResult<bool>.SuccessResult(true, "Order shipped successfully");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[EXCEPTION] {ex.Message}");
+            _logger.LogError(ex, "Error shipping order {OrderId}", orderId);
+            return ServiceResult<bool>.FailureResult("Failed to ship order", new List<string> { ex.Message });
+        }
     }
 
-    public Task<IEnumerable<OrderStatusHistory>> GetOrderHistoryAsync(int orderId, CancellationToken ct = default)
-        => _statusHistoryRepo.GetByOrderIdAsync(orderId, ct);
+    public async Task<ServiceResult<bool>> DeliverOrderAsync(int orderId, CancellationToken ct = default)
+    {
+        try
+        {
+            if (orderId <= 0)
+            {
+                Console.WriteLine("[ERROR] Invalid orderId");
+                return ServiceResult<bool>.FailureResult("Invalid orderId", new List<string> { "orderId must be greater than 0" });
+            }
+
+            var order = await _orderRepo.GetByIdAsync(orderId, ct);
+            if (order == null)
+            {
+                Console.WriteLine("[ERROR] Order not found");
+                return ServiceResult<bool>.FailureResult("Order not found", new List<string> { $"Order {orderId} does not exist" });
+            }
+
+            order.OrderStatus = OrderStatus.Delivered;
+            await _orderRepo.UpdateAsync(order, ct);
+            await _statusHistoryRepo.AddAsync(new OrderStatusHistory
+            {
+                OrderId = order.Id,
+                OldStatus = null,
+                NewStatus = order.OrderStatus,
+                Comment = "Order delivered",
+                ChangedAt = DateTime.UtcNow
+            }, ct);
+            await _orderRepo.SaveChangesAsync(ct);
+
+            Console.WriteLine("[SUCCESS] Order delivered successfully");
+            return ServiceResult<bool>.SuccessResult(true, "Order delivered successfully");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[EXCEPTION] {ex.Message}");
+            _logger.LogError(ex, "Error delivering order {OrderId}", orderId);
+            return ServiceResult<bool>.FailureResult("Failed to deliver order", new List<string> { ex.Message });
+        }
+    }
+
+    public async Task<ServiceResult<bool>> CancelOrderAsync(int orderId, string? reason = null, CancellationToken ct = default)
+    {
+        try
+        {
+            if (orderId <= 0)
+            {
+                Console.WriteLine("[ERROR] Invalid orderId");
+                return ServiceResult<bool>.FailureResult("Invalid orderId", new List<string> { "orderId must be greater than 0" });
+            }
+
+            var order = await _orderRepo.GetByIdAsync(orderId, ct);
+            if (order == null)
+            {
+                Console.WriteLine("[ERROR] Order not found");
+                return ServiceResult<bool>.FailureResult("Order not found", new List<string> { $"Order {orderId} does not exist" });
+            }
+
+            order.OrderStatus = OrderStatus.Cancelled;
+            await _orderRepo.UpdateAsync(order, ct);
+
+            // Release stock if reserved
+            await _inventoryService.ReleaseReservationsAsync(order.Id.ToString());
+
+            await _statusHistoryRepo.AddAsync(new OrderStatusHistory
+            {
+                OrderId = order.Id,
+                OldStatus = null,
+                NewStatus = order.OrderStatus,
+                Comment = reason ?? "Order cancelled",
+                ChangedAt = DateTime.UtcNow
+            }, ct);
+
+            await _orderRepo.SaveChangesAsync(ct);
+
+            Console.WriteLine("[SUCCESS] Order cancelled successfully");
+            return ServiceResult<bool>.SuccessResult(true, "Order cancelled successfully");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[EXCEPTION] {ex.Message}");
+            _logger.LogError(ex, "Error cancelling order {OrderId}", orderId);
+            return ServiceResult<bool>.FailureResult("Failed to cancel order", new List<string> { ex.Message });
+        }
+    }
+
+
+    public async Task<ServiceResult<IEnumerable<OrderStatusHistory>>> GetOrderHistoryAsync(int orderId, CancellationToken ct = default)
+    {
+        try
+        {
+            if (orderId <= 0)
+            {
+                Console.WriteLine("[ERROR] Invalid orderId");
+                return ServiceResult<IEnumerable<OrderStatusHistory>>.FailureResult(
+                    "Invalid orderId",
+                    new List<string> { "orderId must be greater than 0" }
+                );
+            }
+
+            var histories = await _statusHistoryRepo.GetByOrderIdAsync(orderId, ct);
+
+            if (histories == null || !histories.Any())
+            {
+                Console.WriteLine("[ERROR] No order history found");
+                return ServiceResult<IEnumerable<OrderStatusHistory>>.FailureResult(
+                    "No order history found",
+                    new List<string> { $"Order {orderId} has no history" }
+                );
+            }
+
+            Console.WriteLine("[SUCCESS] Order history retrieved successfully");
+            return ServiceResult<IEnumerable<OrderStatusHistory>>.SuccessResult(histories, "Order history retrieved successfully");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[EXCEPTION] {ex.Message}");
+            _logger.LogError(ex, "Error getting order history for order {OrderId}", orderId);
+            return ServiceResult<IEnumerable<OrderStatusHistory>>.FailureResult("Failed to get order history", new List<string> { ex.Message });
+        }
+    }
+
 
     private decimal CalculateOrderTotal(OrderCreateDto dto)
     {

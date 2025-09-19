@@ -1,3 +1,5 @@
+using TheLightStore.Dtos.Orders;
+
 namespace TheLightStore.Interfaces.Payment;
 
 public interface IPaymentService
@@ -5,7 +7,7 @@ public interface IPaymentService
     /// <summary>
     /// Khởi tạo giao dịch thanh toán mới (Pending).
     /// </summary>
-    Task<OrderPayment> CreatePaymentAsync(int orderId, decimal amount, string method);
+    Task<OrderPaymentDto> CreatePaymentAsync(int orderId, decimal amount, string method);
 
     /// <summary>
     /// Xử lý callback/response từ Payment Gateway (ví dụ: Momo, VNPay).

@@ -1,3 +1,5 @@
+using TheLightStore.Dtos.Orders;
+using TheLightStore.Interfaces.Orders;
 using TheLightStore.Interfaces.Payment;
 
 namespace TheLightStore.Services.Payment;
@@ -5,17 +7,26 @@ namespace TheLightStore.Services.Payment;
 public class PaymentService : IPaymentService
 {
     private readonly IPaymentRepo _paymentRepo;
+    private readonly IOrderRepo _orderRepo;
+    private readonly IInventoryService _inventoryService;
     private readonly ILogger<PaymentService> _logger;
+    private readonly IMomoService _momoService;
+    private readonly IConfiguration _configuration;
 
-    public PaymentService(IPaymentRepo paymentRepo, ILogger<PaymentService> logger)
+    public PaymentService(IPaymentRepo paymentRepo, IOrderRepo orderRepo, IInventoryService inventoryService, ILogger<PaymentService> logger, IMomoService momoService, IConfiguration configuration)
     {
         _paymentRepo = paymentRepo;
+        _orderRepo = orderRepo;
+        _inventoryService = inventoryService;
         _logger = logger;
+        _momoService = momoService;
+        _configuration = configuration;
+        _momoService = momoService;
     }
 
-    public async Task<OrderPayment> CreatePaymentAsync(int orderId, decimal amount, string method)
+    public async Task<OrderPaymentDto> CreatePaymentAsync(int orderId, decimal amount, string method)
     {
-        var payment = new OrderPayment
+        var payment = new OrderPaymentDto
         {
             OrderId = orderId,
             Amount = amount,
@@ -27,7 +38,56 @@ public class PaymentService : IPaymentService
             UpdatedAt = DateTime.UtcNow
         };
 
-        await _paymentRepo.AddAsync(payment);
+        if (method.ToLower() == "momo")
+        {
+            try
+            {
+                // Gọi Momo
+                var momoResponse = await _momoService.CreatePaymentAsync(new MomoOnetimePaymentRequest
+                {
+                    OrderInfo = payment.PaymentRequestId.ToString(),
+                    Amount = (long)amount,
+                    RedirectUrl = _configuration["MomoAPI:ReturnUrl"]!,
+                    IpnUrl = _configuration["MomoAPI:IpnUrl"]!,
+                    ExtraData = null
+                });
+
+                if (momoResponse.ResultCode != 0)
+                {
+                    _logger.LogWarning("Momo payment failed with ResultCode {ResultCode} for OrderId {OrderId}",
+                        momoResponse.ResultCode, orderId);
+                    payment.PaymentStatus = "failed";
+                }
+                else
+                {
+                    payment.CheckoutUrl = momoResponse.PayUrl;
+                    payment.QrCodeUrl = momoResponse.QrCodeUrl;
+                    payment.PaymentStatus = "pending";
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Exception when calling Momo API for OrderId {OrderId}", orderId);
+                payment.PaymentStatus = "failed";
+            }
+        }
+
+        var paymentEntity = new OrderPayment
+        {
+            OrderId = payment.OrderId,
+            Amount = payment.Amount,
+            PaymentMethod = payment.PaymentMethod,
+            PaymentStatus = payment.PaymentStatus,
+            PaymentRequestId = payment.PaymentRequestId,
+            Currency = payment.Currency,
+            TransactionId = payment.TransactionId,
+            PaidAt = payment.PaidAt,
+            FailedAt = payment.FailedAt,
+            CreatedAt = payment.CreatedAt,
+            UpdatedAt = payment.UpdatedAt
+        };
+
+        await _paymentRepo.AddAsync(paymentEntity);
         await _paymentRepo.SaveChangesAsync();
 
         _logger.LogInformation("Created payment request {PaymentRequestId} for order {OrderId}", payment.PaymentRequestId, orderId);
@@ -45,11 +105,33 @@ public class PaymentService : IPaymentService
             payment.PaymentStatus = "paid";
             payment.TransactionId = transactionId;
             payment.PaidAt = DateTime.UtcNow;
+
+            // Xác nhận đặt giữ và cập nhật trạng thái đơn hàng
+            var order = await _orderRepo.GetByIdAsync(payment.OrderId); // Giả sử OrderRepo được inject
+            if (order != null)
+            {
+                await _inventoryService.CommitReservationsAsync(order.Id.ToString());
+                order.OrderStatus = OrderStatus.Confirmed;
+                await _orderRepo.UpdateAsync(order);
+                await _orderRepo.SaveChangesAsync();
+            }
         }
         else
         {
             payment.PaymentStatus = "failed";
             payment.FailedAt = DateTime.UtcNow;
+
+            // Giải phóng đặt giữ và hủy đơn hàng
+            var order = await _orderRepo.GetByIdAsync(payment.OrderId);
+            if (order != null)
+            {
+                await _inventoryService.ReleaseReservationsAsync(order.Id.ToString());
+                order.OrderStatus = OrderStatus.Cancelled;
+                await _orderRepo.UpdateAsync(order);
+                await _orderRepo.SaveChangesAsync();
+                // Thông báo thất bại
+                // await _notificationService.NotifyOrderStatusChangedAsync(order, "Pending", "Cancelled");
+            }
         }
 
         payment.UpdatedAt = DateTime.UtcNow;
@@ -70,4 +152,5 @@ public class PaymentService : IPaymentService
         }
         return payment;
     }
+
 }

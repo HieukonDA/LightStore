@@ -6,73 +6,79 @@ namespace TheLightStore.Services.Momo;
 
 public class MomoService : IMomoService
 {
-    private readonly IOptions<MomoOptionModel> _options;
+    private readonly IOptions<MomoConfig> _options;
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly ILogger<MomoService> _logger;
 
-    public MomoService(IOptions<MomoOptionModel> options, IHttpClientFactory httpClientFactory)
+    public MomoService(IOptions<MomoConfig> options, IHttpClientFactory httpClientFactory, ILogger<MomoService> logger)
     {
         _options = options;
         _httpClientFactory = httpClientFactory;
+        _logger = logger;
     }
-    public async Task<MomoCreatePaymentResponseModel> CreatePaymentAsync(OrderInfoModel model)
+    public async Task<MomoCreatePaymentResponseModel> CreatePaymentAsync(MomoOnetimePaymentRequest request)
     {
-        model.OrderId = DateTime.UtcNow.Ticks.ToString();
-        model.OrderInfo = "Khách hàng: " + model.FullName + ". Nội dung: " + model.OrderInfo;
+        var partnerCode = _options.Value.PartnerCode;
+        var accessKey = _options.Value.AccessKey;
+        var secretKey = _options.Value.SecretKey;
+
+        var requestId = Guid.NewGuid().ToString();
+        var orderId = DateTimeOffset.Now.ToUnixTimeMilliseconds().ToString();
+
+        // rawData đúng chuẩn MoMo
         var rawData =
-            $"partnerCode={_options.Value.PartnerCode}" +
-            $"&accessKey={_options.Value.AccessKey}" +
-            $"&requestId={model.OrderId}" +
-            $"&amount={model.Amount}" +
-            $"&orderId={model.OrderId}" +
-            $"&orderInfo={model.OrderInfo}" +
-            $"&returnUrl={_options.Value.ReturnUrl}" +
-            $"&notifyUrl={_options.Value.NotifyUrl}" +
-            $"&extraData=";
+            $"accessKey={accessKey}" +
+            $"&amount={request.Amount}" +
+            $"&extraData={request.ExtraData ?? ""}" +
+            $"&ipnUrl={request.IpnUrl}" +
+            $"&orderId={orderId}" +
+            $"&orderInfo={request.OrderInfo}" +
+            $"&partnerCode={partnerCode}" +
+            $"&redirectUrl={request.RedirectUrl}" +
+            $"&requestId={requestId}" +
+            $"&requestType=captureWallet";
 
-        var signature = ComputeHmacSha256(rawData, _options.Value.SecretKey);
+        var signature = ComputeHmacSha256(rawData, secretKey);
 
-        // Create an object representing the request data
-        var requestData = new
+        var finalRequest = new
         {
-            accessKey = _options.Value.AccessKey,
-            partnerCode = _options.Value.PartnerCode,
-            requestType = _options.Value.RequestType,
-            notifyUrl = _options.Value.NotifyUrl,
-            returnUrl = _options.Value.ReturnUrl,
-            orderId = model.OrderId,
-            amount = model.Amount.ToString(),
-            orderInfo = model.OrderInfo,
-            requestId = model.OrderId,
-            extraData = "",
-            signature = signature
+            partnerCode,
+            accessKey,
+            requestId,
+            orderId,
+            orderInfo = request.OrderInfo,
+            amount = request.Amount.ToString(),
+            redirectUrl = request.RedirectUrl,
+            ipnUrl = request.IpnUrl,
+            extraData = request.ExtraData ?? "",
+            requestType = "captureWallet",
+            signature,
+            lang = "vi"
         };
-        
+
         using var client = _httpClientFactory.CreateClient();
+        var content = new StringContent(
+            JsonSerializer.Serialize(finalRequest),
+            Encoding.UTF8,
+            "application/json");
 
-        // Serialize the request data to a JSON string
-        var jsonContent = JsonSerializer.Serialize(requestData);
+        var url = _options.Value.PaymentUrl;
+        var response = await client.PostAsync(url, content);
 
-        // Create a StringContent object with the JSON payload and set the content type
-        var httpContent = new StringContent(jsonContent, Encoding.UTF8, "application/json");
+        var body = await response.Content.ReadAsStringAsync();
+        _logger.LogInformation("MoMo CreatePayment Response: {Body}", body);
 
-        // Send the POST request to the Momo API
-        var response = await client.PostAsync(_options.Value.Url, httpContent);
-
-        // Ensure the request was successful
         response.EnsureSuccessStatusCode();
+        _logger.LogInformation("Raw response from MoMo: {Body}", body);
 
-        // Read the response content as a string
-        var responseContent = await response.Content.ReadAsStringAsync();
 
-        // Deserialize the JSON response to the model
-        var momoResponse = JsonSerializer.Deserialize<MomoCreatePaymentResponseModel>(
-            responseContent,
-            new JsonSerializerOptions { PropertyNameCaseInsensitive = true }
-        );
+        var result = JsonSerializer.Deserialize<MomoCreatePaymentResponseModel>(body);
+        if (result == null)
+            throw new Exception("Failed to deserialize Momo payment response.");
 
-        return momoResponse;
-
+        return result;
     }
+
     
     public MomoExecuteResponseModel PaymentExecuteAsync(IQueryCollection collection)
     {
@@ -92,6 +98,9 @@ public class MomoService : IMomoService
         var payType = collection["payType"].ToString();
         var extraData = collection["extraData"].ToString();
 
+        _logger.LogInformation("Momo callback received. OrderId: {OrderId}, Amount: {Amount}, ErrorCode: {ErrorCode}, TransId: {TransId}",
+            orderId, amount, errorCode, transId);
+
         // build lại rawData để verify chữ ký
         var rawData =
             $"partnerCode={partnerCode}" +
@@ -110,6 +119,8 @@ public class MomoService : IMomoService
             $"&extraData={extraData}";
 
         var computedSignature = ComputeHmacSha256(rawData, _options.Value.SecretKey);
+        _logger.LogInformation("Momo callback signature verification. ComputedSignature: {ComputedSignature}, ReceivedSignature: {Signature}",
+            computedSignature, signature);
 
         if (computedSignature != signature)
         {
@@ -118,11 +129,41 @@ public class MomoService : IMomoService
 
         return new MomoExecuteResponseModel()
         {
-            Amount = amount,
+            Amount = decimal.Parse(amount),
             OrderId = orderId,
             OrderInfo = orderInfo,
             FullName = "" // MoMo không trả về tên KH, cần map từ Order của bạn
         };
+    }
+
+
+    public bool ValidateSignature(MomoConfig request)
+    {
+        var secretKey = _options.Value.SecretKey;
+        if (string.IsNullOrEmpty(secretKey))
+            throw new InvalidOperationException("Momo SecretKey not configured");
+
+        // Chuẩn rawData string theo thứ tự Momo yêu cầu
+        var rawData =
+            $"partnerCode={request.PartnerCode}" +
+            $"&orderId={request.OrderId}" +
+            $"&requestId={request.RequestId}" +
+            $"&amount={request.Amount}" +
+            $"&orderInfo={request.OrderInfo}" +
+            $"&orderType={request.OrderType}" +
+            $"&transId={request.TransId}" +
+            $"&resultCode={request.ErrorCode}" +
+            $"&message={request.Message}" +
+            $"&payType={request.PayType}" +
+            $"&responseTime={request.ResponseTime}" +
+            $"&extraData={request.ExtraData}";
+
+        // Tính toán chữ ký HMACSHA256
+        using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(secretKey));
+        var hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(rawData));
+        var computedSignature = BitConverter.ToString(hash).Replace("-", "").ToLower();
+
+        return computedSignature == request.Signature;
     }
 
 

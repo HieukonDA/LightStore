@@ -50,12 +50,16 @@ public partial class Order
 
     public virtual OrderInvoice? OrderInvoice { get; set; }
 
+    [JsonIgnore]
     public virtual ICollection<OrderItem> OrderItems { get; set; } = new List<OrderItem>();
 
+    [JsonIgnore]
     public virtual ICollection<OrderPayment> OrderPayments { get; set; } = new List<OrderPayment>();
 
+    [JsonIgnore]
     public virtual ICollection<OrderStatusHistory> OrderStatusHistories { get; set; } = new List<OrderStatusHistory>();
 
+    [JsonIgnore]
     public virtual ICollection<ProductReview> ProductReviews { get; set; } = new List<ProductReview>();
 
     public virtual User? User { get; set; }

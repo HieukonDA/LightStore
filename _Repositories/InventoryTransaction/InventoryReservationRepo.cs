@@ -38,7 +38,7 @@ public class InventoryReservationRepo : IInventoryReservationRepo
     {
         var now = DateTime.UtcNow;
         return await _context.InventoryReservations
-            .Where(ir => ir.ReservedUntil < now && ir.Status == "Reserved")
+            .Where(ir => ir.ReservedUntil < now && ir.Status == InventoryStatus.Active)
             .Include(ir => ir.Product)
             .Include(ir => ir.Variant)
             .ToListAsync();
@@ -129,7 +129,7 @@ public class InventoryReservationRepo : IInventoryReservationRepo
 
         var query = _context.InventoryReservations
             .Where(r => r.ProductId == productId
-                        && r.Status == InventoryStatus.Reserved
+                        && r.Status == InventoryStatus.Active
                         && r.ReservedUntil > now);
 
         if (variantId.HasValue)

@@ -1,10 +1,18 @@
 
 using TheLightStore.Interfaces.Inventory;
 using TheLightStore.Interfaces.Notification;
+using TheLightStore.Interfaces.Notifications;
+using TheLightStore.Interfaces.Orders;
+using TheLightStore.Interfaces.Payment;
 using TheLightStore.Interfaces.Repository;
+using TheLightStore.Repositories.Orders;
+using TheLightStore.Repositories.Payment;
 using TheLightStore.Services.Auth;
 using TheLightStore.Services.BackgroundJobs;
 using TheLightStore.Services.Inventory;
+using TheLightStore.Services.Notifications;
+using TheLightStore.Services.Orders;
+using TheLightStore.Services.Payment;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -93,7 +101,7 @@ builder.Services.AddSession(options =>
 });
 
 //connect momo api
-builder.Services.Configure<MomoOptionModel>(builder.Configuration.GetSection("MomoAPI"));
+builder.Services.Configure<MomoConfig>(builder.Configuration.GetSection("MomoAPI"));
 builder.Services.AddHttpClient();
 builder.Services.AddScoped<IMomoService, MomoService>();
 
@@ -107,6 +115,16 @@ builder.Services.AddHostedService<InventoryCleanupJob>();
 
 builder.Services.AddScoped<IInventoryLogRepo, InventoryLogRepo>();
 
+builder.Services.AddScoped<IOrderService, OrderService>();
+builder.Services.AddScoped<IOrderRepo, OrderRepo>();
+builder.Services.AddScoped<IOrderItemRepo, OrderItemRepo>();
+builder.Services.AddScoped<IOrderStatusHistoryRepo, OrderStatusHistoryRepo>();
+
+builder.Services.AddScoped<IPaymentRepo, PaymentRepo>();
+builder.Services.AddScoped<IPaymentService, PaymentService>();
+
+builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<IEmailService, EmailService>();
 
 
 // Swagger

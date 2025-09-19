@@ -25,5 +25,6 @@ public class Category
 
     public virtual Category? Parent { get; set; }
 
+    [JsonIgnore]
     public virtual ICollection<Product> Products { get; set; } = new List<Product>();
 }

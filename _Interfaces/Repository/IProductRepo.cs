@@ -37,4 +37,7 @@ public interface IProductRepo
 
     Task<Dictionary<int, ProductAvailabilityInfo>> GetProductsAvailabilityWithLockAsync(
         List<int> productIds, IDbContextTransaction transaction);
+
+    // search 
+    
 }

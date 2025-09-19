@@ -1,4 +1,6 @@
-﻿namespace TheLightStore.Models.Inventories;
+﻿using System.Text.Json.Serialization;
+
+namespace TheLightStore.Models.Inventories;
 
 public partial class InventoryReservation
 {
@@ -26,6 +28,7 @@ public partial class InventoryReservation
 
     public virtual ShoppingCart? Cart { get; set; }
 
+    [JsonIgnore]
     public virtual Order? Order { get; set; }
 
     public virtual Product Product { get; set; } = null!;

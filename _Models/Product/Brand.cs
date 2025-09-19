@@ -1,4 +1,6 @@
-﻿namespace TheLightStore.Models.Products;
+﻿using System.Text.Json.Serialization;
+
+namespace TheLightStore.Models.Products;
 
 public partial class Brand
 {
@@ -14,5 +16,6 @@ public partial class Brand
 
     public DateTime? CreatedAt { get; set; }
 
+    [JsonIgnore]
     public virtual ICollection<Product> Products { get; set; } = new List<Product>();
 }

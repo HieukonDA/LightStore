@@ -1,3 +1,4 @@
+using TheLightStore.Dtos.Orders;
 using TheLightStore.DTOs.Orders;
 
 namespace TheLightStore.Interfaces.Orders;
@@ -5,17 +6,17 @@ namespace TheLightStore.Interfaces.Orders;
 public interface IOrderService
 {
     // Core
-    Task<Order> CreateOrderAsync(OrderCreateDto dto, CancellationToken ct = default);
+    Task<ServiceResult<OrderDto>> CreateOrderAsync(OrderCreateDto dto, CancellationToken ct = default);
 
-    Task<Order?> GetOrderByIdAsync(int orderId, CancellationToken ct = default);
-    Task<IEnumerable<Order>> GetOrdersByUserAsync(int userId, CancellationToken ct = default);
+    Task<ServiceResult<Order?>> GetOrderByIdAsync(int orderId, CancellationToken ct = default);
+    Task<ServiceResult<IEnumerable<Order>>> GetOrdersByUserAsync(int userId, CancellationToken ct = default);
 
     // State transitions
-    Task ConfirmOrderAsync(int orderId, string? adminNotes = null, CancellationToken ct = default);
-    Task ShipOrderAsync(int orderId, string? trackingNumber = null, CancellationToken ct = default);
-    Task DeliverOrderAsync(int orderId, CancellationToken ct = default);
-    Task CancelOrderAsync(int orderId, string? reason = null, CancellationToken ct = default);
+    Task<ServiceResult<bool>> ConfirmOrderAsync(int orderId, string? adminNotes = null, CancellationToken ct = default);
+    Task<ServiceResult<bool>> ShipOrderAsync(int orderId, string? trackingNumber = null, CancellationToken ct = default);
+    Task<ServiceResult<bool>> DeliverOrderAsync(int orderId, CancellationToken ct = default);
+    Task<ServiceResult<bool>> CancelOrderAsync(int orderId, string? reason = null, CancellationToken ct = default);
 
     // Tracking
-    Task<IEnumerable<OrderStatusHistory>> GetOrderHistoryAsync(int orderId, CancellationToken ct = default);
+    Task<ServiceResult<IEnumerable<OrderStatusHistory>>> GetOrderHistoryAsync(int orderId, CancellationToken ct = default);
 }

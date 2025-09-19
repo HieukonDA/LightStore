@@ -959,6 +959,7 @@ public partial class DBContext : DbContext
         // =======================
         modelBuilder.Entity<UserRole>(entity =>
         {
+            entity.ToTable("UserRole");
             // Composite key
             entity.HasKey(ur => new { ur.UserId, ur.RoleId })
                 .HasName("PK_UserRole");
@@ -1005,6 +1006,48 @@ public partial class DBContext : DbContext
                 .HasDefaultValueSql("GETUTCDATE()");
 
             entity.Property(rp => rp.IsActive)
+                .HasDefaultValue(true);
+        });
+
+        // Role Configuration
+        modelBuilder.Entity<Role>(entity =>
+        {
+            entity.ToTable("Role"); // hoặc "Roles" tùy tên bảng thực tế
+            entity.HasKey(r => r.Id);
+            
+            entity.Property(r => r.Name)
+                .IsRequired()
+                .HasMaxLength(100);
+                
+            entity.Property(r => r.CreatedAt)
+                .HasDefaultValueSql("GETUTCDATE()");
+                
+            entity.Property(r => r.IsActive)
+                .HasDefaultValue(true);
+        });
+
+        // Permission Configuration  
+        modelBuilder.Entity<Permission>(entity =>
+        {
+            entity.ToTable("Permission"); // hoặc "Permissions" tùy tên bảng thực tế
+            entity.HasKey(p => p.Id);
+            
+            entity.Property(p => p.Name)
+                .IsRequired()
+                .HasMaxLength(100);
+                
+            entity.Property(p => p.Module)
+                .IsRequired()
+                .HasMaxLength(50);
+                
+            entity.Property(p => p.Action)
+                .IsRequired()
+                .HasMaxLength(50);
+                
+            entity.Property(p => p.CreatedAt)
+                .HasDefaultValueSql("GETUTCDATE()");
+                
+            entity.Property(p => p.IsActive)
                 .HasDefaultValue(true);
         });
 
