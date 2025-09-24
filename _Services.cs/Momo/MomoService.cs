@@ -1,6 +1,7 @@
 using System.Net.Http;
 using System.Net.Http.Json;
 using Microsoft.Extensions.Options;
+using TheLightStore.Controllers.Checkout;
 
 namespace TheLightStore.Services.Momo;
 
@@ -85,38 +86,32 @@ public class MomoService : IMomoService
         var amount = collection["amount"].ToString();
         var orderInfo = collection["orderInfo"].ToString();
         var orderId = collection["orderId"].ToString();
-        var errorCode = collection["errorCode"].ToString();
+        var resultCode = collection["resultCode"].ToString();
         var partnerCode = collection["partnerCode"].ToString();
         var accessKey = collection["accessKey"].ToString();
         var transId = collection["transId"].ToString();
         var responseTime = collection["responseTime"].ToString();
         var message = collection["message"].ToString();
-        var localMessage = collection["localMessage"].ToString();
         var signature = collection["signature"].ToString();
         var requestId = collection["requestId"].ToString();
         var orderType = collection["orderType"].ToString();
         var payType = collection["payType"].ToString();
         var extraData = collection["extraData"].ToString();
+        var payUrl = collection["payUrl"].ToString();
 
-        _logger.LogInformation("Momo callback received. OrderId: {OrderId}, Amount: {Amount}, ErrorCode: {ErrorCode}, TransId: {TransId}",
-            orderId, amount, errorCode, transId);
+        _logger.LogInformation("Momo callback received. OrderId: {OrderId}, Amount: {Amount}, ResultCode: {ResultCode}, TransId: {TransId}",
+            orderId, amount, resultCode, transId);
 
         // build lại rawData để verify chữ ký
         var rawData =
-            $"partnerCode={partnerCode}" +
-            $"&accessKey={accessKey}" +
-            $"&requestId={requestId}" +
+            $"accessKey={_options.Value.AccessKey}" +
             $"&amount={amount}" +
             $"&orderId={orderId}" +
-            $"&orderInfo={orderInfo}" +
-            $"&orderType={orderType}" +
-            $"&transId={transId}" +
-            $"&message={message}" +
-            $"&localMessage={localMessage}" +
+            $"&partnerCode={partnerCode}" +
+            $"&payUrl={payUrl}" +
+            $"&requestId={requestId}" +
             $"&responseTime={responseTime}" +
-            $"&errorCode={errorCode}" +
-            $"&payType={payType}" +
-            $"&extraData={extraData}";
+            $"&resultCode={resultCode}";
 
         var computedSignature = ComputeHmacSha256(rawData, _options.Value.SecretKey);
         _logger.LogInformation("Momo callback signature verification. ComputedSignature: {ComputedSignature}, ReceivedSignature: {Signature}",
@@ -137,33 +132,40 @@ public class MomoService : IMomoService
     }
 
 
-    public bool ValidateSignature(MomoConfig request)
+    public bool ValidateSignature(MomoIPNRequest request)
     {
+        var accessKey = _options.Value.AccessKey;
         var secretKey = _options.Value.SecretKey;
         if (string.IsNullOrEmpty(secretKey))
             throw new InvalidOperationException("Momo SecretKey not configured");
 
         // Chuẩn rawData string theo thứ tự Momo yêu cầu
         var rawData =
-            $"partnerCode={request.PartnerCode}" +
-            $"&orderId={request.OrderId}" +
-            $"&requestId={request.RequestId}" +
+            $"accessKey={accessKey}" +
             $"&amount={request.Amount}" +
+            $"&extraData={request.ExtraData ?? ""}" +
+            $"&message={request.Message ?? ""}" +
+            $"&orderId={request.OrderId}" +
             $"&orderInfo={request.OrderInfo}" +
             $"&orderType={request.OrderType}" +
-            $"&transId={request.TransId}" +
-            $"&resultCode={request.ErrorCode}" +
-            $"&message={request.Message}" +
+            $"&partnerCode={request.PartnerCode}" +
             $"&payType={request.PayType}" +
+            $"&requestId={request.RequestId}" +
             $"&responseTime={request.ResponseTime}" +
-            $"&extraData={request.ExtraData}";
+            $"&resultCode={request.ResultCode}" +
+            $"&transId={request.TransId}";
+
+        _logger.LogInformation("Raw data for signature validation: {RawData}", rawData);
 
         // Tính toán chữ ký HMACSHA256
         using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(secretKey));
         var hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(rawData));
         var computedSignature = BitConverter.ToString(hash).Replace("-", "").ToLower();
 
-        return computedSignature == request.Signature;
+        _logger.LogInformation("Computed signature: {ComputedSignature}, Received signature: {ReceivedSignature}",
+            computedSignature, request.Signature?.ToLower());
+
+        return computedSignature == request.Signature?.ToLower();
     }
 
 

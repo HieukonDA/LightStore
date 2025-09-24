@@ -1,5 +1,6 @@
 
 using Microsoft.AspNetCore.Http.Features;
+
 using TheLightStore.Interfaces.Inventory;
 using TheLightStore.Interfaces.Notification;
 using TheLightStore.Interfaces.Notifications;
@@ -186,6 +187,9 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();  // 1. HTTPS redirect trước
 app.UseCors("AllowFrontend");
+
+// Add request logging middleware for MoMo debugging
+
 
 app.UseSession();           // 4. Session
 app.UseAuthentication();    // 2. Authentication

@@ -14,6 +14,7 @@ public interface IOrderService
 
     // State transitions
     Task<ServiceResult<bool>> ConfirmOrderAsync(int orderId, string? adminNotes = null, CancellationToken ct = default);
+    Task<ServiceResult<bool>> ProcessOrderAsync(int orderId, string? processingNotes = null, CancellationToken ct = default);
     Task<ServiceResult<bool>> ShipOrderAsync(int orderId, string? trackingNumber = null, CancellationToken ct = default);
     Task<ServiceResult<bool>> DeliverOrderAsync(int orderId, CancellationToken ct = default);
     Task<ServiceResult<bool>> CancelOrderAsync(int orderId, string? reason = null, CancellationToken ct = default);

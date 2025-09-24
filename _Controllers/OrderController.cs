@@ -104,6 +104,17 @@ public class OrderController : ControllerBase
         return Ok(new { success = true, message = result.Message });
     }
 
+    [HttpPut("{orderId}/process")]
+    public async Task<IActionResult> ProcessOrder(int orderId, [FromBody] string? processingNotes, CancellationToken ct = default)
+    {
+        var result = await _orderService.ProcessOrderAsync(orderId, processingNotes, ct);
+
+        if (!result.Success)
+            return BadRequest(new { message = result.Message, errors = result.Errors });
+
+        return Ok(new { success = true, message = result.Message });
+    }
+
     [HttpPut("{orderId:int}/ship")]
     public async Task<IActionResult> ShipOrder(int orderId, [FromBody] string? trackingNumber, CancellationToken ct = default)
     {

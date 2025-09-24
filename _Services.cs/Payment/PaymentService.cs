@@ -32,7 +32,7 @@ public class PaymentService : IPaymentService
             Amount = amount,
             PaymentMethod = method,
             PaymentStatus = "pending",
-            PaymentRequestId = Guid.NewGuid(),
+            PaymentRequestId = Guid.NewGuid().ToString(),
             Currency = "VND",
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
@@ -95,7 +95,7 @@ public class PaymentService : IPaymentService
         return payment;
     }
 
-    public async Task HandlePaymentResultAsync(Guid paymentRequestId, bool isSuccess, string? transactionId = null)
+    public async Task HandlePaymentResultAsync(string paymentRequestId, bool isSuccess, string? transactionId = null)
     {
         var payment = await _paymentRepo.GetByRequestIdAsync(paymentRequestId)
                       ?? throw new InvalidOperationException($"Payment request {paymentRequestId} not found");
@@ -143,7 +143,7 @@ public class PaymentService : IPaymentService
     
     }
 
-    public async Task<OrderPayment> GetPaymentStatusAsync(Guid paymentRequestId)
+    public async Task<OrderPayment> GetPaymentStatusAsync(string paymentRequestId)
     {
         var payment = await _paymentRepo.GetByRequestIdAsync(paymentRequestId);
         if (payment == null)

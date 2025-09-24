@@ -20,7 +20,7 @@ public class MomoConfig
     public string OrderInfo { get; set; }
     public long ResponseTime { get; set; }
     public long TransId { get; set; }
-    public int ErrorCode { get; set; }
+    public int ResultCode { get; set; }
     public string Message { get; set; }
     public string PayType { get; set; }
     public string ExtraData { get; set; }

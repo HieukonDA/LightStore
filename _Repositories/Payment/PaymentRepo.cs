@@ -9,7 +9,7 @@ public class PaymentRepo : IPaymentRepo
         _context = context;
     }
 
-    public async Task<OrderPayment> GetByRequestIdAsync(Guid paymentRequestId)
+    public async Task<OrderPayment> GetByRequestIdAsync(string paymentRequestId)
     {
         return await _context.OrderPayments.FirstOrDefaultAsync(p => p.PaymentRequestId == paymentRequestId);
     }

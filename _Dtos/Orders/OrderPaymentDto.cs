@@ -9,7 +9,7 @@ public class OrderPaymentDto
     public decimal Amount { get; set; }
     public string? Currency { get; set; }
     public string? TransactionId { get; set; }
-    public Guid PaymentRequestId { get; set; }
+    public string PaymentRequestId { get; set; }
 
     // ✅ Runtime only
     public string? CheckoutUrl { get; set; }

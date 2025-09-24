@@ -12,10 +12,10 @@ public interface IPaymentService
     /// <summary>
     /// Xử lý callback/response từ Payment Gateway (ví dụ: Momo, VNPay).
     /// </summary>
-    Task HandlePaymentResultAsync(Guid paymentRequestId, bool isSuccess, string? transactionId = null);
+    Task HandlePaymentResultAsync(string paymentRequestId, bool isSuccess, string? transactionId = null);
 
     /// <summary>
     /// Kiểm tra trạng thái giao dịch.
     /// </summary>
-    Task<OrderPayment> GetPaymentStatusAsync(Guid paymentRequestId);
+    Task<OrderPayment> GetPaymentStatusAsync(string paymentRequestId);
 }

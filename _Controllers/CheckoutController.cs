@@ -3,8 +3,8 @@ using TheLightStore.Interfaces.Payment;
 
 namespace TheLightStore.Controllers.Checkout;
 
-[Route("api/v1/checkout")]
 [ApiController]
+[Route("api/v1/[controller]")]
 public class CheckoutController : ControllerBase
 {
     private readonly IMomoService _momoService;
@@ -24,136 +24,33 @@ public class CheckoutController : ControllerBase
         _logger = logger;
     }
 
-    // [HttpPost("create-momo-payment")]
-    // public async Task<IActionResult> CreateMomoPayment([FromBody] CreatePaymentRequest request)
-    // {
-    //     try
-    //     {
-    //         // Validate request
-    //         if (request?.OrderId <= 0)
-    //         {
-    //             return BadRequest("Invalid order ID");
-    //         }
-
-    //         // Get order
-    //         var order = await _orderRepo.GetByIdAsync(request.OrderId);
-    //         if (order == null)
-    //         {
-    //             _logger.LogWarning("Order not found: {OrderId}", request.OrderId);
-    //             return NotFound("Order not found");
-    //         }
-
-    //         // Find pending payment
-    //         var payment = order.OrderPayments?.FirstOrDefault(p => p.PaymentStatus == "pending");
-    //         if (payment == null)
-    //         {
-    //             _logger.LogWarning("No pending payment found for order: {OrderId}", request.OrderId);
-    //             return BadRequest("No pending payment found");
-    //         }
-
-    //         // Validate order amount
-    //         if (order.TotalAmount <= 0)
-    //         {
-    //             return BadRequest("Invalid order amount");
-    //         }
-
-    //         // Create order info for MoMo
-    //         var orderInfo = new MomoOnetimePaymentRequest
-    //         {
-    //             orderId = payment.PaymentRequestId.ToString(),
-    //             amount = order.TotalAmount, // ✅ Theo model gốc là string
-    //             fullName = order.CustomerName ?? "Guest",
-    //             orderInfo = $"Thanh toán đơn hàng {order.OrderNumber}"
-    //         };
-
-    //         _logger.LogInformation("Creating MoMo payment for order {OrderId}, amount {Amount}",
-    //                              order.Id, order.TotalAmount);
-
-    //         var response = await _momoService.CreatePaymentAsync(orderInfo);
-
-    //         // Update payment with MoMo transaction info
-    //         payment.TransactionId = response.RequestId;
-    //         payment.PaymentMethod = "MoMo";
-    //         await _orderRepo.SaveChangesAsync(); // Assuming this exists
-
-    //         return Ok(new CreatePaymentResponse
-    //         {
-    //             Success = true,
-    //             PayUrl = response.PayUrl,
-    //             QrCodeUrl = response.QrCodeUrl,
-    //             OrderId = order.Id,
-    //             Amount = order.TotalAmount,
-    //             RequestId = response.RequestId
-    //         });
-    //     }
-    //     catch (Exception ex)
-    //     {
-    //         _logger.LogError(ex, "Invalid argument when creating MoMo payment for order {OrderId}", request?.OrderId);
-    //         return BadRequest($"Invalid request: {ex.Message}");
-    //     }
-    // }
-
-    // [HttpGet("momo-callback")]
-    // public async Task<IActionResult> MomoCallback([FromQuery] IQueryCollection query)
-    // {
-    //     try
-    //     {
-    //         _logger.LogInformation("Received MoMo callback with query: {Query}",
-    //                              string.Join(", ", query.Select(x => $"{x.Key}={x.Value}")));
-
-    //         var executeResult = _momoService.PaymentExecuteAsync(query);
-
-    //         if (executeResult == null)
-    //         {
-    //             _logger.LogError("MoMo callback returned null result");
-    //             return BadRequest("Invalid callback data");
-    //         }
-
-    //         // Parse PaymentRequestId from OrderId
-    //         if (!Guid.TryParse(executeResult.OrderId, out var paymentRequestId))
-    //         {
-    //             _logger.LogError("Invalid PaymentRequestId format: {OrderId}", executeResult.OrderId);
-    //             return BadRequest("Invalid payment request ID");
-    //         }
-
-    //         var isSuccess = query["errorCode"] == "0"; // ✅ Đúng theo code gốc
-    //         var transactionId = query["transId"].ToString();
-
-    //         _logger.LogInformation("Processing MoMo payment result - PaymentRequestId: {PaymentRequestId}, Success: {Success}, TransactionId: {TransactionId}",
-    //                              paymentRequestId, isSuccess, transactionId);
-
-    //         // Process payment result
-    //         await _paymentService.HandlePaymentResultAsync(paymentRequestId, isSuccess, transactionId);
-
-    //         // Return appropriate redirect to Frontend
-    //         var frontendBaseUrl = "https://localhost:5173"; // ✅ Frontend URL is correct here
-
-    //         if (isSuccess)
-    //         {
-    //             _logger.LogInformation("MoMo payment successful for PaymentRequestId: {PaymentRequestId}", paymentRequestId);
-    //             return Redirect($"{frontendBaseUrl}/order/success?orderId={paymentRequestId}");
-    //         }
-    //         else
-    //         {
-    //             _logger.LogWarning("MoMo payment failed for PaymentRequestId: {PaymentRequestId}, ErrorCode: {ErrorCode}",
-    //                              paymentRequestId, query["errorCode"]);
-    //             return Redirect($"{frontendBaseUrl}/order/failure?orderId={paymentRequestId}&error={query["message"]}");
-    //         }
-    //     }
-    //     catch (Exception ex)
-    //     {
-    //         _logger.LogError(ex, "Error processing MoMo callback");
-    //         return StatusCode(500, "Error processing payment callback");
-    //     }
-    // }
-
-
     [HttpPost("momo-ipn")]
-    public async Task<IActionResult> MomoNotify([FromBody] MomoConfig ipn)
+    public async Task<IActionResult> MomoNotify([FromBody] MomoIPNRequest ipn)
     {
+        _logger.LogInformation("=== MOMO IPN RECEIVED ===");
+        _logger.LogInformation("IPN Data: {@Ipn}", ipn);
+        _logger.LogInformation("Request Headers: {Headers}",
+            string.Join(", ", Request.Headers.Select(h => $"{h.Key}={h.Value}")));
+
+        // Log raw request body
+        Request.EnableBuffering();
+        Request.Body.Position = 0;
+        using var reader = new StreamReader(Request.Body, Encoding.UTF8, leaveOpen: true);
+        var body = await reader.ReadToEndAsync();
+        Request.Body.Position = 0;
+        _logger.LogInformation("Raw Request Body: {Body}", body);
 
         try
         {
+            if (ipn == null)
+            {
+                _logger.LogError("IPN request is null");
+                return BadRequest(new { message = "Invalid IPN data" });
+            }
+
+            _logger.LogInformation("IPN Details - OrderId: {OrderId}, Amount: {Amount}, ResultCode: {ResultCode}, RequestId: {RequestId}, TransId: {TransId}",
+                ipn.OrderId, ipn.Amount, ipn.ResultCode, ipn.RequestId, ipn.TransId);
+
             // 1. Validate chữ ký
             if (!_momoService.ValidateSignature(ipn))
             {
@@ -161,28 +58,39 @@ public class CheckoutController : ControllerBase
                 return BadRequest(new { message = "Invalid signature" });
             }
 
-            bool isSuccess = ipn.ErrorCode == 0;
+            _logger.LogInformation("Signature validation passed for RequestId: {RequestId}", ipn.RequestId);
+
+            bool isSuccess = ipn.ResultCode == 0;
+            _logger.LogInformation("Payment result: Success={IsSuccess}, ResultCode={ResultCode}", isSuccess, ipn.ResultCode);
 
             // Xử lý thành công
-            await _paymentService.HandlePaymentResultAsync(ipn.RequestId, isSuccess, ipn.TransId.ToString());
+            await _paymentService.HandlePaymentResultAsync(ipn.OrderInfo, isSuccess, ipn.TransId.ToString());
 
-            _logger.LogInformation("Processed Momo IPN for RequestId {RequestId}, Success = {IsSuccess}",
-                    ipn.RequestId, isSuccess);
+            _logger.LogInformation("Successfully processed Momo IPN for RequestId {RequestId}, OrderInfo = {OrderInfo}, Success = {IsSuccess}",
+                    ipn.RequestId, ipn.OrderInfo, isSuccess);
 
             // 4. Trả về response cho Momo
-            return Ok(new
-            {
-                message = "success",
-                resultCode = 0
-            });
+            return NoContent();
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error processing Momo IPN for RequestId {RequestId}", ipn.RequestId);
+            _logger.LogError(ex, "Error processing Momo IPN for RequestId {RequestId}", ipn?.RequestId);
             return StatusCode(500, "Error processing IPN");
         }
 
     }
+
+
+    [HttpPost("test-ipn")]
+    public IActionResult TestIpn([FromBody] object body)
+    {
+        Console.WriteLine("=== TEST IPN RECEIVED ===");
+        Console.WriteLine(body);
+        return Ok(new { message = "received" });
+    }
+
+
+
 
     [HttpPost("payment")]
     public async Task<IActionResult> CreatePayment([FromBody] CreatePaymentRequest request)
@@ -208,8 +116,28 @@ public class CheckoutController : ControllerBase
             return StatusCode(500, new { message = "Failed to create payment" });
         }
     }
+    
+
+
 }
 
+
+public class MomoIPNRequest
+{
+    public string OrderType { get; set; }
+    public long Amount { get; set; }
+    public string PartnerCode { get; set; }
+    public string OrderId { get; set; }
+    public string ExtraData { get; set; }
+    public string Signature { get; set; }
+    public long TransId { get; set; }
+    public long ResponseTime { get; set; }
+    public int ResultCode { get; set; }
+    public string Message { get; set; }
+    public string PayType { get; set; }
+    public string RequestId { get; set; }
+    public string OrderInfo { get; set; }
+}
 
 
 public class CreatePaymentRequest

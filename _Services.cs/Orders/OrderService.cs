@@ -215,6 +215,8 @@ public class OrderService : IOrderService
         }
     }
 
+    #region state transitions
+        
 
     public async Task<ServiceResult<bool>> ConfirmOrderAsync(int orderId, string? adminNotes = null, CancellationToken ct = default)
     {
@@ -255,6 +257,75 @@ public class OrderService : IOrderService
             return ServiceResult<bool>.FailureResult("Failed to confirm order", new List<string> { ex.Message });
         }
     }
+
+
+    public async Task<ServiceResult<bool>> ProcessOrderAsync(int orderId, string? processingNotes = null, CancellationToken ct = default)
+    {
+        try
+        {
+            if (orderId <= 0)
+            {
+                Console.WriteLine("[ERROR] Invalid orderId");
+                return ServiceResult<bool>.FailureResult("Invalid orderId", new List<string> { "orderId must be greater than 0" });
+            }
+
+            var order = await _orderRepo.GetByIdAsync(orderId, ct);
+            if (order == null)
+            {
+                Console.WriteLine("[ERROR] Order not found");
+                return ServiceResult<bool>.FailureResult("Order not found", new List<string> { $"Order {orderId} does not exist" });
+            }
+
+            // Kiểm tra order status - chỉ cho phép process order đã confirmed
+            if (order.OrderStatus != OrderStatus.Confirmed)
+            {
+                Console.WriteLine($"[ERROR] Invalid order status. Current: {order.OrderStatus}, Expected: {OrderStatus.Confirmed}");
+                return ServiceResult<bool>.FailureResult("Invalid order status", 
+                    new List<string> { $"Order must be in Confirmed status to process. Current status: {order.OrderStatus}" });
+            }
+
+            var oldStatus = order.OrderStatus;
+            order.OrderStatus = OrderStatus.Processing;
+            
+            await _orderRepo.UpdateAsync(order, ct);
+            
+            // Thêm status history
+            await _statusHistoryRepo.AddAsync(new OrderStatusHistory
+            {
+                OrderId = order.Id,
+                OldStatus = oldStatus,
+                NewStatus = order.OrderStatus,
+                Comment = processingNotes ?? "Order moved to processing",
+                ChangedAt = DateTime.UtcNow
+            }, ct);
+            
+            await _orderRepo.SaveChangesAsync(ct);
+
+            // Log và có thể gửi notification
+            _logger.LogInformation("Order {OrderId} moved to processing status", orderId);
+            
+            // Có thể thêm notification cho customer
+            // try
+            // {
+            //     await _notificationService.SendOrderStatusUpdateAsync(order.Id, order.OrderStatus);
+            // }
+            // catch (Exception notifEx)
+            // {
+            //     _logger.LogWarning(notifEx, "Failed to send notification for order {OrderId}", orderId);
+            //     // Không fail toàn bộ process vì notification
+            // }
+
+            Console.WriteLine("[SUCCESS] Order processed successfully");
+            return ServiceResult<bool>.SuccessResult(true, "Order processed successfully");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[EXCEPTION] {ex.Message}");
+            _logger.LogError(ex, "Error processing order {OrderId}", orderId);
+            return ServiceResult<bool>.FailureResult("Failed to process order", new List<string> { ex.Message });
+        }
+    }
+
 
     public async Task<ServiceResult<bool>> ShipOrderAsync(int orderId, string? trackingNumber = null, CancellationToken ct = default)
     {
@@ -381,6 +452,11 @@ public class OrderService : IOrderService
             return ServiceResult<bool>.FailureResult("Failed to cancel order", new List<string> { ex.Message });
         }
     }
+
+
+
+
+    #endregion
 
 
     public async Task<ServiceResult<IEnumerable<OrderStatusHistory>>> GetOrderHistoryAsync(int orderId, CancellationToken ct = default)
