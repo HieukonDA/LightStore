@@ -57,7 +57,7 @@ public class CategoryService : ICategoryService
         }
         catch (System.Exception ex)
         {
-             _logger.LogWarning(ex, "Invalid argument provided to GetAllCategoriesAsync");
+            _logger.LogWarning(ex, "Invalid argument provided to GetAllCategoriesAsync");
             return ServiceResult<PagedResult<CategoryDto>>.FailureResult(ex.Message, new List<string>());
         }
     }
@@ -121,9 +121,9 @@ public class CategoryService : ICategoryService
             return ServiceResult<bool>.FailureResult(ex.Message, new List<string>());
         }
     }
-    
 
-    
+
+
 
     public async Task<ServiceResult<CategoryDto>> UpdateCategoryAsync(int id, CategoryDto categoryDto)
     {
@@ -145,6 +145,41 @@ public class CategoryService : ICategoryService
         {
             _logger.LogWarning("Error occurred while updating category");
             return ServiceResult<CategoryDto>.FailureResult(ex.Message, new List<string>());
+        }
+    }
+    
+
+    /// <summary>
+    /// Get category statistics for admin dashboard (Category Pie Chart)
+    /// </summary>
+    /// <returns></returns>
+    public async Task<ServiceResult<List<CategoryStatsDto>>> GetCategoryStatsAsync()
+    {
+        try
+        {
+            _logger.LogInformation("Fetching category statistics for dashboard");
+
+            // Call repository
+            var result = await _categoryRepo.GetCategoryStatsAsync();
+
+            // Check if result is null or empty
+            if (result == null)
+            {
+                _logger.LogWarning("Repository returned null result for GetCategoryStatsAsync");
+                return ServiceResult<List<CategoryStatsDto>>.FailureResult("No category statistics available", new List<string>());
+            }
+
+            // Log the number of categories found
+            _logger.LogInformation($"Successfully fetched statistics for {result.Count} categories");
+
+            return ServiceResult<List<CategoryStatsDto>>.SuccessResult(result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error occurred while fetching category statistics");
+            return ServiceResult<List<CategoryStatsDto>>.FailureResult(
+                "An error occurred while retrieving category statistics", 
+                new List<string> { ex.Message });
         }
     }
 

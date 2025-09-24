@@ -99,4 +99,32 @@ public class AuthController : ControllerBase
         return result.Success ? Ok(result) : BadRequest(result);
     }
 
+    #region Admin - Customer Management
+
+    [Authorize(Roles = "Admin")]
+    [HttpGet("customers")]
+    public async Task<IActionResult> GetCustomers([FromQuery] PagedRequest request)
+    {
+        var result = await _authService.GetCustomersAsync(request);
+        return result.Success ? Ok(result) : BadRequest(result);
+    }
+
+    [Authorize(Roles = "Admin")]
+    [HttpGet("customers/{customerId}")]
+    public async Task<IActionResult> GetCustomerById(int customerId)
+    {
+        var result = await _authService.GetCustomerByIdAsync(customerId);
+        return result.Success ? Ok(result) : NotFound(result);
+    }
+
+    [Authorize(Roles = "Admin")]
+    [HttpDelete("customers/{customerId}")]
+    public async Task<IActionResult> DeleteCustomer(int customerId)
+    {
+        var result = await _authService.DeleteCustomerAsync(customerId);
+        return result.Success ? Ok(result) : BadRequest(result);
+    }
+
+    #endregion
+
 }

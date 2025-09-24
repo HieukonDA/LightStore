@@ -171,3 +171,4 @@ D:\LightStore\TheLightStore\obj\Debug\net9.0\refint\TheLightStore.dll
 D:\LightStore\TheLightStore\obj\Debug\net9.0\TheLightStore.pdb
 D:\LightStore\TheLightStore\obj\Debug\net9.0\TheLightStore.genruntimeconfig.cache
 D:\LightStore\TheLightStore\obj\Debug\net9.0\ref\TheLightStore.dll
+D:\LightStore\TheLightStore\bin\Debug\net9.0\TheLightStore.staticwebassets.runtime.json

@@ -62,5 +62,6 @@ public partial class Order
     [JsonIgnore]
     public virtual ICollection<ProductReview> ProductReviews { get; set; } = new List<ProductReview>();
 
+    [JsonIgnore]
     public virtual User? User { get; set; }
 }

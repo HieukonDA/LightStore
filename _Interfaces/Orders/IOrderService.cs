@@ -6,6 +6,7 @@ namespace TheLightStore.Interfaces.Orders;
 public interface IOrderService
 {
     // Core
+    Task<ServiceResult<PagedResult<OrderDto>>> GetAllAsync(PagedRequest request, CancellationToken ct = default);
     Task<ServiceResult<OrderDto>> CreateOrderAsync(OrderCreateDto dto, CancellationToken ct = default);
 
     Task<ServiceResult<Order?>> GetOrderByIdAsync(int orderId, CancellationToken ct = default);
@@ -19,4 +20,12 @@ public interface IOrderService
 
     // Tracking
     Task<ServiceResult<IEnumerable<OrderStatusHistory>>> GetOrderHistoryAsync(int orderId, CancellationToken ct = default);
+
+    //admin stats
+    // Dashboard Stats & Analytics
+    Task<ServiceResult<decimal>> GetTotalRevenueAsync(DateTime? fromDate = null, DateTime? toDate = null, CancellationToken ct = default);
+    Task<ServiceResult<int>> GetTotalOrdersCountAsync(DateTime? fromDate = null, DateTime? toDate = null, CancellationToken ct = default);
+    Task<ServiceResult<decimal>> GetAverageOrderValueAsync(DateTime? fromDate = null, DateTime? toDate = null, CancellationToken ct = default);
+    Task<ServiceResult<List<SalesDataPoint>>> GetSalesByMonthAsync(int months = 6, CancellationToken ct = default);
+    Task<ServiceResult<IEnumerable<Order>>> GetRecentOrdersAsync(int limit = 10, CancellationToken ct = default);
 }

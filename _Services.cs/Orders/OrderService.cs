@@ -34,6 +34,30 @@ public class OrderService : IOrderService
         _logger = logger;
     }
 
+    public async Task<ServiceResult<PagedResult<OrderDto>>> GetAllAsync(PagedRequest request, CancellationToken ct = default)
+    {
+        try
+        {
+            var result = await _orderRepo.GetAllAsync(request, ct);
+
+            var orderDtos = result.Items.Select(result => CartMapper.MapOrderToDto(result)).ToList();
+            var pagedResult = new PagedResult<OrderDto>
+            {
+                Items = orderDtos,
+                TotalCount = result.TotalCount,
+                Page = result.Page,
+                PageSize = result.PageSize
+            };
+
+            return ServiceResult<PagedResult<OrderDto>>.SuccessResult(pagedResult, "Orders retrieved successfully");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving orders");
+            return ServiceResult<PagedResult<OrderDto>>.FailureResult("An error occurred while retrieving orders", new List<string> { ex.Message });
+        }
+    }
+
     public async Task<ServiceResult<OrderDto>> CreateOrderAsync(OrderCreateDto dto, CancellationToken ct = default)
     {
         try
@@ -90,7 +114,7 @@ public class OrderService : IOrderService
             if (reserveResults.Any(r => !r.Success))
             {
                 Console.WriteLine("[ERROR] One or more items are out of stock.");
-                return ServiceResult<OrderDto>.FailureResult("One or more items are out of stock.", 
+                return ServiceResult<OrderDto>.FailureResult("One or more items are out of stock.",
                     new List<string> { "OutOfStock" });
             }
 
@@ -98,13 +122,13 @@ public class OrderService : IOrderService
             var payment = await _paymentService.CreatePaymentAsync(order.Id, order.TotalAmount, dto.PaymentMethod);
 
             var orderDto = CartMapper.MapOrderToDto(order);
-            
+
             _logger.LogInformation("Payment created with QrCodeUrl: {QrCodeUrl}, CheckoutUrl: {CheckoutUrl}", payment.QrCodeUrl, payment.CheckoutUrl);
 
             orderDto.Payment.QrCodeUrl = payment.QrCodeUrl;
             orderDto.Payment.CheckoutUrl = payment.CheckoutUrl;
             await _orderRepo.SaveChangesAsync(ct);
-            
+
             // // 4. Update Order status -> WAITING_FOR_PAYMENT
             // order.OrderStatus = OrderStatus.Processing;
             // await _orderRepo.UpdateAsync(order, ct);
@@ -129,7 +153,7 @@ public class OrderService : IOrderService
             Console.WriteLine($"[EXCEPTION] {ex.Message}");
             _logger.LogError(ex, "Error creating order for user {UserId}", dto.UserId);
 
-            return ServiceResult<OrderDto>.FailureResult("Failed to create order", 
+            return ServiceResult<OrderDto>.FailureResult("Failed to create order",
                 new List<string> { ex.Message });
         }
     }
@@ -394,6 +418,119 @@ public class OrderService : IOrderService
         }
     }
 
+    //admin 
+    #region Dashboard Stats & Analytics
+
+    public async Task<ServiceResult<decimal>> GetTotalRevenueAsync(DateTime? fromDate = null, DateTime? toDate = null, CancellationToken ct = default)
+    {
+        try
+        {
+            Console.WriteLine($"[INFO] Getting total revenue from {fromDate?.ToString("yyyy-MM-dd") ?? "beginning"} to {toDate?.ToString("yyyy-MM-dd") ?? "now"}");
+            
+            var revenue = await _orderRepo.GetTotalRevenueAsync(fromDate, toDate, ct);
+            
+            Console.WriteLine($"[SUCCESS] Total revenue retrieved: {revenue:C}");
+            return ServiceResult<decimal>.SuccessResult(revenue, "Total revenue retrieved successfully");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[EXCEPTION] {ex.Message}");
+            _logger.LogError(ex, "Error getting total revenue from {FromDate} to {ToDate}", fromDate, toDate);
+            return ServiceResult<decimal>.FailureResult("Failed to get total revenue", new List<string> { ex.Message });
+        }
+    }
+
+    public async Task<ServiceResult<int>> GetTotalOrdersCountAsync(DateTime? fromDate = null, DateTime? toDate = null, CancellationToken ct = default)
+    {
+        try
+        {
+            Console.WriteLine($"[INFO] Getting total orders count from {fromDate?.ToString("yyyy-MM-dd") ?? "beginning"} to {toDate?.ToString("yyyy-MM-dd") ?? "now"}");
+            
+            var count = await _orderRepo.GetTotalOrdersCountAsync(fromDate, toDate, ct);
+            
+            Console.WriteLine($"[SUCCESS] Total orders count retrieved: {count}");
+            return ServiceResult<int>.SuccessResult(count, "Total orders count retrieved successfully");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[EXCEPTION] {ex.Message}");
+            _logger.LogError(ex, "Error getting total orders count from {FromDate} to {ToDate}", fromDate, toDate);
+            return ServiceResult<int>.FailureResult("Failed to get total orders count", new List<string> { ex.Message });
+        }
+    }
+
+    public async Task<ServiceResult<decimal>> GetAverageOrderValueAsync(DateTime? fromDate = null, DateTime? toDate = null, CancellationToken ct = default)
+    {
+        try
+        {
+            Console.WriteLine($"[INFO] Getting average order value from {fromDate?.ToString("yyyy-MM-dd") ?? "beginning"} to {toDate?.ToString("yyyy-MM-dd") ?? "now"}");
+            
+            var averageValue = await _orderRepo.GetAverageOrderValueAsync(fromDate, toDate, ct);
+            
+            Console.WriteLine($"[SUCCESS] Average order value retrieved: {averageValue:C}");
+            return ServiceResult<decimal>.SuccessResult(averageValue, "Average order value retrieved successfully");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[EXCEPTION] {ex.Message}");
+            _logger.LogError(ex, "Error getting average order value from {FromDate} to {ToDate}", fromDate, toDate);
+            return ServiceResult<decimal>.FailureResult("Failed to get average order value", new List<string> { ex.Message });
+        }
+    }
+
+    public async Task<ServiceResult<List<SalesDataPoint>>> GetSalesByMonthAsync(int months = 6, CancellationToken ct = default)
+    {
+        try
+        {
+            if (months <= 0)
+            {
+                Console.WriteLine("[ERROR] Invalid months parameter");
+                return ServiceResult<List<SalesDataPoint>>.FailureResult("Invalid months parameter", 
+                    new List<string> { "Months must be greater than 0" });
+            }
+
+            Console.WriteLine($"[INFO] Getting sales data for last {months} months");
+            
+            var salesData = await _orderRepo.GetSalesByMonthAsync(months, ct);
+            
+            Console.WriteLine($"[SUCCESS] Sales data retrieved for {salesData?.Count ?? 0} months");
+            return ServiceResult<List<SalesDataPoint>>.SuccessResult(salesData, "Sales data retrieved successfully");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[EXCEPTION] {ex.Message}");
+            _logger.LogError(ex, "Error getting sales data for {Months} months", months);
+            return ServiceResult<List<SalesDataPoint>>.FailureResult("Failed to get sales data", new List<string> { ex.Message });
+        }
+    }
+
+    public async Task<ServiceResult<IEnumerable<Order>>> GetRecentOrdersAsync(int limit = 10, CancellationToken ct = default)
+    {
+        try
+        {
+            if (limit <= 0)
+            {
+                Console.WriteLine("[ERROR] Invalid limit parameter");
+                return ServiceResult<IEnumerable<Order>>.FailureResult("Invalid limit parameter", 
+                    new List<string> { "Limit must be greater than 0" });
+            }
+
+            Console.WriteLine($"[INFO] Getting recent {limit} orders");
+            
+            var recentOrders = await _orderRepo.GetRecentOrdersAsync(limit, ct);
+            
+            Console.WriteLine($"[SUCCESS] {recentOrders?.Count() ?? 0} recent orders retrieved");
+            return ServiceResult<IEnumerable<Order>>.SuccessResult(recentOrders, "Recent orders retrieved successfully");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[EXCEPTION] {ex.Message}");
+            _logger.LogError(ex, "Error getting recent orders with limit {Limit}", limit);
+            return ServiceResult<IEnumerable<Order>>.FailureResult("Failed to get recent orders", new List<string> { ex.Message });
+        }
+    }
+
+    #endregion
 
     private decimal CalculateOrderTotal(OrderCreateDto dto)
     {

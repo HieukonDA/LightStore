@@ -1,10 +1,12 @@
 
+using Microsoft.AspNetCore.Http.Features;
 using TheLightStore.Interfaces.Inventory;
 using TheLightStore.Interfaces.Notification;
 using TheLightStore.Interfaces.Notifications;
 using TheLightStore.Interfaces.Orders;
 using TheLightStore.Interfaces.Payment;
 using TheLightStore.Interfaces.Repository;
+using TheLightStore.Interfaces.Search;
 using TheLightStore.Repositories.Orders;
 using TheLightStore.Repositories.Payment;
 using TheLightStore.Services.Auth;
@@ -13,6 +15,7 @@ using TheLightStore.Services.Inventory;
 using TheLightStore.Services.Notifications;
 using TheLightStore.Services.Orders;
 using TheLightStore.Services.Payment;
+using TheLightStore.Services.Search;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -67,7 +70,8 @@ builder.Services.AddCors(options =>
             policy.WithOrigins(
                 "http://localhost:5173",      // Vite frontend
                 "https://localhost:5264",    // Swagger UI (https)
-                "http://localhost:5264"      // Swagger UI (http)
+                "http://localhost:5264",      // Swagger UI (http)
+                "https://thelightstore.io.vn"
             ) // domain frontend
                   .AllowAnyHeader()
                   .AllowAnyMethod()
@@ -126,6 +130,7 @@ builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 
+builder.Services.AddScoped<ISearchService, SearchService>();
 
 // Swagger
 builder.Services.AddEndpointsApiExplorer();
@@ -155,10 +160,17 @@ builder.Services.AddScoped<IShoppingCartRepo, ShoppingCartRepo>();
 // Inventory reservation
 builder.Services.AddScoped<IInventoryReservationRepo, InventoryReservationRepo>();
 
+// Address service
+builder.Services.AddScoped<IAddressService, AddressService>();
+
 
 builder.Services.AddSingleton<IpRateLimitService>();
 
-
+// Configure file upload size
+builder.Services.Configure<FormOptions>(options =>
+{
+    options.MultipartBodyLengthLimit = 5 * 1024 * 1024; // 5MB
+});
 
 var app = builder.Build();
 
@@ -181,6 +193,8 @@ app.UseAuthorization();     // 3. Authorization
 
 app.UseRateLimiter();
 app.MapControllers();       // 5. Map controllers
+// Enable static files
+app.UseStaticFiles();
 // app.MapIdentityApi<IdentityUser>(); // 6. Map Identity API
 
 app.Run();

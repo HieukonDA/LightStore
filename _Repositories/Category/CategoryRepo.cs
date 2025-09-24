@@ -44,7 +44,7 @@ public class CategoryRepo : ICategoryRepo
         {
             query = query.OrderBy(c => c.SortOrder).ThenBy(c => c.Name);
         }
-        
+
         // Get total count
         var totalCount = await query.CountAsync();
 
@@ -175,6 +175,48 @@ public class CategoryRepo : ICategoryRepo
         await _context.SaveChangesAsync();
 
         return categoryDto;
+    }
+
+
+    /// <summary>
+    /// Get category statistics for admin dashboard (Category Pie Chart)
+    /// </summary>
+    /// <returns></returns>
+    public async Task<List<CategoryStatsDto>> GetCategoryStatsAsync()
+    {
+        // Get total products count across all categories for percentage calculation
+        var totalProductsCount = await _context.Products
+            .Where(p => p.IsActive)
+            .CountAsync();
+        
+        if (totalProductsCount == 0)
+        {
+            return new List<CategoryStatsDto>();
+        }
+
+        // Query to get category stats with product counts
+        var categoryStats = await _context.Categories
+            .Where(c => c.IsActive)
+            .GroupJoin(
+                _context.Products.Where(p => p.IsActive),
+                category => category.Id,
+                product => product.CategoryId,
+                (category, products) => new
+                {
+                    Category = category,
+                    ProductCount = products.Count()
+                })
+            .Where(x => x.ProductCount > 0) // Only categories with products
+            .OrderByDescending(x => x.ProductCount)
+            .Select(x => new CategoryStatsDto
+            {
+                CategoryName = x.Category.Name,
+                ProductCount = x.ProductCount,
+                Percentage = Math.Round((double)x.ProductCount / totalProductsCount * 100, 1)
+            })
+            .ToListAsync();
+
+        return categoryStats;
     }
 
 

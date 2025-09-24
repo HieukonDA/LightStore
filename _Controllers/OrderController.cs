@@ -17,6 +17,35 @@ public class OrderController : ControllerBase
         _logger = logger;
     }
 
+    [HttpGet]
+    public async Task<IActionResult> GetAllOrders(
+        [FromQuery] int page = 1,
+        [FromQuery] int size = 10,
+        [FromQuery] string? sort = null,
+        [FromQuery] string? search = null,
+        CancellationToken ct = default)
+    {
+        // Validate parameters
+        if (page < 1) page = 1;
+        if (size < 1) size = 10;
+        if (size > 100) size = 100; // Limit max page size
+
+        var request = new PagedRequest
+        {
+            Page = page,
+            Size = size,
+            Sort = sort,
+            Search = search
+        };
+
+        var result = await _orderService.GetAllAsync(request, ct);
+
+        if (!result.Success)
+            return BadRequest(new { message = result.Message, errors = result.Errors });
+
+        return Ok(new { success = true, data = result.Data, message = result.Message });
+    }
+
     [HttpPost]
     public async Task<IActionResult> CreateOrder([FromBody] OrderCreateDto request, CancellationToken ct = default)
     {

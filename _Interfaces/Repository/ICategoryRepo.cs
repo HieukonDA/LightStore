@@ -7,4 +7,7 @@ public interface ICategoryRepo
     Task<CategoryDto> CreateCategoryAsync(CategoryDto categoryDto);
     Task<CategoryDto> UpdateCategoryAsync(int id, CategoryDto categoryDto);
     Task<bool> DeleteCategoryAsync(int id);
+
+    //===== satisfy for admin: Category Pie Chart
+    Task<List<CategoryStatsDto>> GetCategoryStatsAsync(); 
 }

@@ -62,6 +62,16 @@ global using TheLightStore.Interfaces.Momo;
 global using TheLightStore.Models.Momo;
 global using TheLightStore.Services.Momo;
 
+global using TheLightStore.Dtos.Search;
+
+global using TheLightStore.Constants;
+
+global using TheLightStore.Dtos.Stats;
+
+global using TheLightStore.Interfaces.Addresses;
+global using TheLightStore.Dtos.Addresses;
+global using TheLightStore.Services.Addresses;
+
 // system
 global using Microsoft.EntityFrameworkCore;
 global using System.Text;

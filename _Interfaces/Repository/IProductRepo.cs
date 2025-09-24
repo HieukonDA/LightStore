@@ -37,7 +37,9 @@ public interface IProductRepo
 
     Task<Dictionary<int, ProductAvailabilityInfo>> GetProductsAvailabilityWithLockAsync(
         List<int> productIds, IDbContextTransaction transaction);
-
-    // search 
-    
+ 
+    // Search methods
+    Task<PagedResult<Product>> SearchAsync(SearchProductsRequest request);
+    Task<List<Product>> GetProductSuggestionsAsync(string query, int limit = 10);
+    Task<Dictionary<string, int>> GetSearchFiltersAsync(string query); // Count by category, brand, etc.
 }

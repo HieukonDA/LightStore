@@ -28,155 +28,257 @@ public class AuthService : IAuthService
 
     #region implement interfaces
 
+    // public async Task<ServiceResult<AuthResponseDto>> LoginAsync(LoginDto loginDto)
+    // {
+    //     try
+    //     {
+    //         _logger.LogInformation("Attempting login for user: {Email}", loginDto.Email);
+    //         //validate loginDto
+    //         if (string.IsNullOrWhiteSpace(loginDto.Email) || string.IsNullOrWhiteSpace(loginDto.Password))
+    //         {
+    //             return ServiceResult<AuthResponseDto>.FailureResult("Email and password are required.", new List<string>());
+    //         }
+
+    //         //find user by email
+    //         var user = await _userRepo.GetUserByEmailAsync(loginDto.Email);
+
+    //         if (user == null)
+    //         {
+    //             _logger.LogWarning("Login failed for user: {Email}. User not found.", loginDto.Email);
+    //             return ServiceResult<AuthResponseDto>.FailureResult("Invalid email or password.", new List<string>());
+    //         }
+
+    //         // verify password
+    //         bool isPasswordValid = BCrypt.Net.BCrypt.Verify(loginDto.Password, user.PasswordHash);
+
+    //         if (!isPasswordValid)
+    //         {
+    //             _logger.LogWarning("Login failed for user: {Email}. Invalid password.", loginDto.Email);
+    //             return ServiceResult<AuthResponseDto>.FailureResult("Invalid email or password.", new List<string>());
+    //         }
+
+    //         //create token
+    //         var accessToken = GenerateAccessToken(user);
+    //         var refreshToken = GenerateRefreshToken();
+
+    //         //save refresh token to database
+    //         await SaveRefreshTokenAsync(user.Id, refreshToken);
+
+    //         var response = new AuthResponseDto
+    //         {
+    //             AccessToken = accessToken,
+    //             RefreshToken = refreshToken,
+    //             ExpireAt = DateTime.Now.AddMinutes(GetJwtExpirationMinutes()),
+    //             User = new UserDto
+    //             {
+    //                 Id = user.Id,
+    //                 Email = user.Email,
+    //                 FirstName = user.FirstName,
+    //                 LastName = user.LastName,
+    //                 Phone = user.Phone,
+    //                 UserType = user.UserType,
+    //                 CreatedAt = user.CreatedAt,
+    //                 Roles = await _rbacService.GetUserRolesAsync(user.Id)
+    //             }
+    //         };
+
+    //         _logger.LogInformation($"Login successful for user: {user.Email}");
+
+    //         return ServiceResult<AuthResponseDto>.SuccessResult(response, "Login successful");
+
+
+    //     }
+    //     catch (System.Exception ex)
+    //     {
+    //         _logger.LogError(ex, $"Login failed with: {loginDto.Email}");
+    //         return ServiceResult<AuthResponseDto>.FailureResult("An error occurred while logging in.", new List<string> { ex.Message });
+    //     }
+
+    // }
+
     public async Task<ServiceResult<AuthResponseDto>> LoginAsync(LoginDto loginDto)
     {
-        try
+        var user = await _userRepo.GetUserByEmailAsync(loginDto.Email);
+        if (user == null || !BCrypt.Net.BCrypt.Verify(loginDto.Password, user.PasswordHash))
         {
-            _logger.LogInformation("Attempting login for user: {Email}", loginDto.Email);
-            //validate loginDto
-            if (string.IsNullOrWhiteSpace(loginDto.Email) || string.IsNullOrWhiteSpace(loginDto.Password))
-            {
-                return ServiceResult<AuthResponseDto>.FailureResult("Email and password are required.", new List<string>());
-            }
-
-            //find user by email
-            var user = await _userRepo.GetUserByEmailAsync(loginDto.Email);
-
-            if (user == null)
-            {
-                _logger.LogWarning("Login failed for user: {Email}. User not found.", loginDto.Email);
-                return ServiceResult<AuthResponseDto>.FailureResult("Invalid email or password.", new List<string>());
-            }
-
-            // verify password
-            bool isPasswordValid = BCrypt.Net.BCrypt.Verify(loginDto.Password, user.PasswordHash);
-
-            if (!isPasswordValid)
-            {
-                _logger.LogWarning("Login failed for user: {Email}. Invalid password.", loginDto.Email);
-                return ServiceResult<AuthResponseDto>.FailureResult("Invalid email or password.", new List<string>());
-            }
-
-            //create token
-            var accessToken = GenerateAccessToken(user);
-            var refreshToken = GenerateRefreshToken();
-
-            //save refresh token to database
-            await SaveRefreshTokenAsync(user.Id, refreshToken);
-
-            var response = new AuthResponseDto
-            {
-                AccessToken = accessToken,
-                RefreshToken = refreshToken,
-                ExpireAt = DateTime.Now.AddMinutes(GetJwtExpirationMinutes()),
-                User = new UserDto
-                {
-                    Id = user.Id,
-                    Email = user.Email,
-                    FirstName = user.FirstName,
-                    LastName = user.LastName,
-                    Phone = user.Phone,
-                    UserType = user.UserType,
-                    CreatedAt = user.CreatedAt,
-                    Roles = await _rbacService.GetUserRolesAsync(user.Id)
-                }
-            };
-
-            _logger.LogInformation($"Login successful for user: {user.Email}");
-
-            return ServiceResult<AuthResponseDto>.SuccessResult(response, "Login successful");
-
-
-        }
-        catch (System.Exception ex)
-        {
-            _logger.LogError(ex, $"Login failed with: {loginDto.Email}");
-            return ServiceResult<AuthResponseDto>.FailureResult("An error occurred while logging in.", new List<string> { ex.Message });
+            return ServiceResult<AuthResponseDto>.FailureResult("Invalid email or password.", new List<string>());
         }
 
+        // Lấy roles từ RBAC service
+        var roles = await _rbacService.GetUserRolesAsync(user.Id);
+
+        // Tạo access token có chứa roles
+        var accessToken = GenerateAccessToken(user, roles);
+
+        var refreshToken = GenerateRefreshToken();
+
+        await SaveRefreshTokenAsync(user.Id, refreshToken);
+
+        var response = new AuthResponseDto
+        {
+            AccessToken = accessToken,
+            RefreshToken = refreshToken,
+            ExpireAt = DateTime.UtcNow.AddMinutes(GetJwtExpirationMinutes()),
+            User = new UserDto
+            {
+                Id = user.Id,
+                Email = user.Email,
+                FirstName = user.FirstName,
+                LastName = user.LastName,
+                Phone = user.Phone,
+                UserType = user.UserType,
+                CreatedAt = user.CreatedAt,
+                Roles = roles.ToList() // gán roles luôn cho DTO
+            }
+        };
+
+        return ServiceResult<AuthResponseDto>.SuccessResult(response, "Login successful");
     }
+
+
+    // public async Task<ServiceResult<AuthResponseDto>> RegisterAsync(RegisterDto registerDto)
+    // {
+    //     try
+    //     {
+    //         _logger.LogInformation("Registering a new user with email: {Email}", registerDto.Email);
+    //         //validate registerDto
+    //         var errors = ValidateRegisterDto(registerDto);
+    //         if (errors.Any())
+    //         {
+    //             return ServiceResult<AuthResponseDto>.FailureResult("Validation errors occurred.", errors);
+    //         }
+
+    //         //check user exist
+    //         var existingUser = await _userRepo.GetUserByEmailAsync(registerDto.Email);
+    //         if (existingUser != null)
+    //         {
+    //             _logger.LogWarning("Registration failed. Email {Email} is already in use.", registerDto.Email);
+    //             return ServiceResult<AuthResponseDto>.FailureResult("Email is already in use.", new List<string>());
+    //         }
+
+    //         //hash password
+    //         var hashedPassword = BCrypt.Net.BCrypt.HashPassword(registerDto.Password);
+
+    //         //create new user
+    //         var newUser = new User
+    //         {
+    //             Email = registerDto.Email,
+    //             PasswordHash = hashedPassword,
+    //             FirstName = registerDto.FirstName,
+    //             LastName = registerDto.LastName,
+    //             Phone = registerDto.Phone,
+    //             UserType = "customer",
+    //             CreatedAt = DateTime.Now
+    //         };
+
+    //         //add user
+    //         await _userRepo.AddUserAsync(newUser);
+    //         await _context.SaveChangesAsync();
+
+    //         //send welcome email
+    //         await _emailService.SendEmailAsync(
+    //             newUser.Email,
+    //             "Welcome to LightStore!",
+    //             $"<h2>Hello {newUser.FirstName}!</h2><p>Thank you for registering at LightStore.</p>"
+    //         );
+
+    //         //create token
+    //         var accessToken = GenerateAccessToken(newUser);
+    //         var refreshToken = GenerateRefreshToken();
+
+    //         //save refresh token
+    //         await SaveRefreshTokenAsync(newUser.Id, refreshToken);
+
+    //         //return response
+    //         var response = new AuthResponseDto
+    //         {
+    //             AccessToken = accessToken,
+    //             RefreshToken = refreshToken,
+    //             ExpireAt = DateTime.Now.AddMinutes(GetJwtExpirationMinutes()),
+    //             User = new UserDto
+    //             {
+    //                 Id = newUser.Id,
+    //                 Email = newUser.Email,
+    //                 FirstName = newUser.FirstName,
+    //                 LastName = newUser.LastName,
+    //                 Phone = newUser.Phone,
+    //                 UserType = newUser.UserType,
+    //                 CreatedAt = newUser.CreatedAt
+    //             }
+    //         };
+
+    //         _logger.LogInformation("User registered successfully with email: {Email}", registerDto.Email);
+    //         return ServiceResult<AuthResponseDto>.SuccessResult(response);
+
+    //     }
+    //     catch (System.Exception ex)
+    //     {
+    //         _logger.LogError(ex, "An error occurred while registering a new user.");
+    //         return ServiceResult<AuthResponseDto>.FailureResult("An error occurred while processing your request.", new List<string>());
+    //     }
+    // }
 
     public async Task<ServiceResult<AuthResponseDto>> RegisterAsync(RegisterDto registerDto)
     {
-        try
+        var existingUser = await _userRepo.GetUserByEmailAsync(registerDto.Email);
+        if (existingUser != null)
         {
-            _logger.LogInformation("Registering a new user with email: {Email}", registerDto.Email);
-            //validate registerDto
-            var errors = ValidateRegisterDto(registerDto);
-            if (errors.Any())
-            {
-                return ServiceResult<AuthResponseDto>.FailureResult("Validation errors occurred.", errors);
-            }
-
-            //check user exist
-            var existingUser = await _userRepo.GetUserByEmailAsync(registerDto.Email);
-            if (existingUser != null)
-            {
-                _logger.LogWarning("Registration failed. Email {Email} is already in use.", registerDto.Email);
-                return ServiceResult<AuthResponseDto>.FailureResult("Email is already in use.", new List<string>());
-            }
-
-            //hash password
-            var hashedPassword = BCrypt.Net.BCrypt.HashPassword(registerDto.Password);
-
-            //create new user
-            var newUser = new User
-            {
-                Email = registerDto.Email,
-                PasswordHash = hashedPassword,
-                FirstName = registerDto.FirstName,
-                LastName = registerDto.LastName,
-                Phone = registerDto.Phone,
-                UserType = "customer",
-                CreatedAt = DateTime.Now
-            };
-
-            //add user
-            await _userRepo.AddUserAsync(newUser);
-            await _context.SaveChangesAsync();
-
-            //send welcome email
-            await _emailService.SendEmailAsync(
-                newUser.Email,
-                "Welcome to LightStore!",
-                $"<h2>Hello {newUser.FirstName}!</h2><p>Thank you for registering at LightStore.</p>"
-            );
-
-            //create token
-            var accessToken = GenerateAccessToken(newUser);
-            var refreshToken = GenerateRefreshToken();
-
-            //save refresh token
-            await SaveRefreshTokenAsync(newUser.Id, refreshToken);
-
-            //return response
-            var response = new AuthResponseDto
-            {
-                AccessToken = accessToken,
-                RefreshToken = refreshToken,
-                ExpireAt = DateTime.Now.AddMinutes(GetJwtExpirationMinutes()),
-                User = new UserDto
-                {
-                    Id = newUser.Id,
-                    Email = newUser.Email,
-                    FirstName = newUser.FirstName,
-                    LastName = newUser.LastName,
-                    Phone = newUser.Phone,
-                    UserType = newUser.UserType,
-                    CreatedAt = newUser.CreatedAt
-                }
-            };
-
-            _logger.LogInformation("User registered successfully with email: {Email}", registerDto.Email);
-            return ServiceResult<AuthResponseDto>.SuccessResult(response);
-
+            return ServiceResult<AuthResponseDto>.FailureResult("Email already exists.", new List<string>());
         }
-        catch (System.Exception ex)
+
+        var user = new User
         {
-            _logger.LogError(ex, "An error occurred while registering a new user.");
-            return ServiceResult<AuthResponseDto>.FailureResult("An error occurred while processing your request.", new List<string>());
-        }
+            FirstName = registerDto.FirstName,
+            LastName = registerDto.LastName,
+            Email = registerDto.Email,
+            Phone = registerDto.Phone,
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(registerDto.Password),
+            UserType = "customer",
+            CreatedAt = DateTime.UtcNow
+        };
+
+        //add user
+        await _userRepo.AddUserAsync(user);
+        await _context.SaveChangesAsync();
+
+        await _emailService.SendEmailAsync(
+            user.Email,
+            "Welcome to LightStore!",
+            $"<h2>Hello {user.FirstName}!</h2><p>Thank you for registering at LightStore.</p>"
+        );
+
+        // Gán role mặc định
+        await _rbacService.AssignRoleToUserAsync(user.Id, /*roleId =*/ 2); // ví dụ roleId=2 là Customer
+
+        var roles = await _rbacService.GetUserRolesAsync(user.Id);
+
+        // Tạo token
+        var accessToken = GenerateAccessToken(user, roles);
+        var refreshToken = GenerateRefreshToken();
+
+        await SaveRefreshTokenAsync(user.Id, refreshToken);
+
+        var response = new AuthResponseDto
+        {
+            AccessToken = accessToken,
+            RefreshToken = refreshToken,
+            ExpireAt = DateTime.UtcNow.AddMinutes(GetJwtExpirationMinutes()),
+            User = new UserDto
+            {
+                Id = user.Id,
+                Email = user.Email,
+                FirstName = user.FirstName,
+                LastName = user.LastName,
+                Phone = user.Phone,
+                UserType = user.UserType,
+                CreatedAt = user.CreatedAt,
+                Roles = roles.ToList()
+            }
+        };
+
+        return ServiceResult<AuthResponseDto>.SuccessResult(response, "Registration successful");
     }
+
 
     public async Task<ServiceResult<bool>> ForgotPasswordAsync(ForgotPasswordDto forgotPasswordDto)
     {
@@ -436,10 +538,166 @@ public class AuthService : IAuthService
         }
     }
 
+    
+    /// <summary>
+    /// statistics for admin dashboard, total user
+    /// </summary>
+    /// <param name="fromDate"></param>
+    /// <param name="toDate"></param>
+    /// <returns></returns>
+    public async Task<ServiceResult<int>> GetTotalCustomersCountAsync(DateTime? fromDate = null, DateTime? toDate = null)
+    {
+        try
+        {
+            var query = _context.Users.AsQueryable();
+
+            if (fromDate.HasValue)
+                query = query.Where(u => u.CreatedAt >= fromDate.Value);
+
+            if (toDate.HasValue)
+                query = query.Where(u => u.CreatedAt <= toDate.Value);
+
+            var total = await query.CountAsync();
+
+            return ServiceResult<int>.SuccessResult(total, "Total customers retrieved successfully.");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get total customers count");
+            return ServiceResult<int>.FailureResult("An error occurred while retrieving customers count.", new List<string> { ex.Message });
+        }
+    }
+
+
 
 
 
     #endregion
+
+
+    #region Admin - Customer Management
+
+    public async Task<ServiceResult<PagedResult<UserDto>>> GetCustomersAsync(PagedRequest request)
+    {
+        try
+        {
+            // Lấy tất cả users theo page từ repo
+            var usersQuery = _context.Users.AsQueryable();
+
+            // Search
+            if (!string.IsNullOrWhiteSpace(request.Search))
+            {
+                string searchLower = request.Search.ToLower();
+                usersQuery = usersQuery.Where(u => u.Email.ToLower().Contains(searchLower)
+                                                || u.FirstName.ToLower().Contains(searchLower)
+                                                || u.LastName.ToLower().Contains(searchLower));
+            }
+
+            // Sort (ví dụ theo CreatedAt mặc định)
+            if (!string.IsNullOrWhiteSpace(request.Sort))
+            {
+                if (request.Sort.ToLower() == "createdat_desc")
+                    usersQuery = usersQuery.OrderByDescending(u => u.CreatedAt);
+                else if (request.Sort.ToLower() == "createdat_asc")
+                    usersQuery = usersQuery.OrderBy(u => u.CreatedAt);
+            }
+            else
+            {
+                usersQuery = usersQuery.OrderByDescending(u => u.CreatedAt);
+            }
+
+            // Paging
+            int totalCount = await usersQuery.CountAsync();
+            var users = await usersQuery
+                .Skip((request.Page - 1) * request.Size)
+                .Take(request.Size)
+                .ToListAsync();
+
+            // Map to UserDto
+            var userDtos = users.Select(u => new UserDto
+            {
+                Id = u.Id,
+                Email = u.Email,
+                FirstName = u.FirstName,
+                LastName = u.LastName,
+                Phone = u.Phone ?? "",
+                UserType = u.UserType,
+                CreatedAt = u.CreatedAt,
+                Roles = u.UserRoles.Select(r => r.Role.Name)
+            }).ToList();
+
+            var pagedResult = new PagedResult<UserDto>
+            {
+                Items = userDtos,
+                TotalCount = totalCount,
+                Page = request.Page,
+                PageSize = request.Size
+            };
+
+            return ServiceResult<PagedResult<UserDto>>.SuccessResult(pagedResult, "Customers retrieved successfully.");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get customers list");
+            return ServiceResult<PagedResult<UserDto>>.FailureResult("An error occurred while retrieving customers.", new List<string> { ex.Message });
+        }
+    }
+
+    public async Task<ServiceResult<UserDto>> GetCustomerByIdAsync(int customerId)
+    {
+        try
+        {
+            var user = await _userRepo.GetUserByIdAsync(customerId);
+            if (user == null)
+                return ServiceResult<UserDto>.FailureResult("Customer not found.", new List<string>());
+
+            var userDto = new UserDto
+            {
+                Id = user.Id,
+                Email = user.Email,
+                FirstName = user.FirstName,
+                LastName = user.LastName,
+                Phone = user.Phone ?? "",
+                UserType = user.UserType,
+                CreatedAt = user.CreatedAt,
+                Roles = user.UserRoles.Select(r => r.Role.Name)
+            };
+
+            return ServiceResult<UserDto>.SuccessResult(userDto, "Customer retrieved successfully.");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get customer by ID {CustomerId}", customerId);
+            return ServiceResult<UserDto>.FailureResult("An error occurred while retrieving customer.", new List<string> { ex.Message });
+        }
+    }
+
+    public async Task<ServiceResult<bool>> DeleteCustomerAsync(int customerId)
+    {
+        try
+        {
+            var result = await _userRepo.DeleteUserAsync(customerId);
+            if (!result)
+                return ServiceResult<bool>.FailureResult("Customer not found or could not be deleted.", new List<string>());
+
+            return ServiceResult<bool>.SuccessResult(true, "Customer deleted successfully.");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to delete customer with ID {CustomerId}", customerId);
+            return ServiceResult<bool>.FailureResult("An error occurred while deleting customer.", new List<string> { ex.Message });
+        }
+    }
+
+    #endregion
+
+
+
+
+
+
+
+
 
     #region helper methods
 
@@ -494,10 +752,10 @@ public class AuthService : IAuthService
 
     // token ================================================================================================
 
-    public string GenerateAccessToken(User user)
+    public string GenerateAccessToken(User user, IEnumerable<string> roles)
     {
-        var key = Encoding.ASCII.GetBytes(_configuration["Jwt:Key"] ?? throw new InvalidOperationException("JWT key not found"));
-        var tokenHandler = new JwtSecurityTokenHandler();
+        var key = Encoding.ASCII.GetBytes(_configuration["Jwt:Key"] 
+            ?? throw new InvalidOperationException("JWT key not found"));
 
         var claims = new List<Claim>
         {
@@ -506,18 +764,69 @@ public class AuthService : IAuthService
             new Claim("UserType", user.UserType)
         };
 
+        // Add roles vào claim
+        foreach (var role in roles)
+        {
+            claims.Add(new Claim(ClaimTypes.Role, role));
+        }
+
         var tokenDescriptor = new SecurityTokenDescriptor
         {
             Subject = new ClaimsIdentity(claims),
-            Expires = DateTime.Now.AddMinutes(GetJwtExpirationMinutes()),
-            SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature),
+            Expires = DateTime.UtcNow.AddMinutes(GetJwtExpirationMinutes()),
+            SigningCredentials = new SigningCredentials(
+                new SymmetricSecurityKey(key),
+                SecurityAlgorithms.HmacSha256Signature
+            ),
             Issuer = _configuration["Jwt:Issuer"],
             Audience = _configuration["Jwt:Audience"]
         };
 
+        var tokenHandler = new JwtSecurityTokenHandler();
         var token = tokenHandler.CreateToken(tokenDescriptor);
+
         return tokenHandler.WriteToken(token);
     }
+
+
+    // public string GenerateAccessToken(User user)
+    // {
+    //     var key = Encoding.ASCII.GetBytes(_configuration["Jwt:Key"]
+    //         ?? throw new InvalidOperationException("JWT key not found"));
+    //     var tokenHandler = new JwtSecurityTokenHandler();
+
+    //     var claims = new List<Claim>
+    //     {
+    //         new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+    //         new Claim(ClaimTypes.Email, user.Email),
+    //         new Claim("UserType", user.UserType)
+    //     };
+
+    //     // Lấy roles từ UserRoles (EF navigation) hoặc từ service
+    //     var roles = user.UserRoles?.Select(r => r.Role.Name).ToList() ?? new List<string>();
+
+    //     foreach (var role in roles)
+    //     {
+    //         claims.Add(new Claim(ClaimTypes.Role, role));
+    //         // Quan trọng: thêm claim role
+    //     }
+
+    //     var tokenDescriptor = new SecurityTokenDescriptor
+    //     {
+    //         Subject = new ClaimsIdentity(claims),
+    //         Expires = DateTime.Now.AddMinutes(GetJwtExpirationMinutes()),
+    //         SigningCredentials = new SigningCredentials(
+    //             new SymmetricSecurityKey(key),
+    //             SecurityAlgorithms.HmacSha256Signature
+    //         ),
+    //         Issuer = _configuration["Jwt:Issuer"],
+    //         Audience = _configuration["Jwt:Audience"]
+    //     };
+
+    //     var token = tokenHandler.CreateToken(tokenDescriptor);
+    //     return tokenHandler.WriteToken(token);
+    // }
+
 
     public string GenerateRefreshToken()
     {

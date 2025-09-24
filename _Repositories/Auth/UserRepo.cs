@@ -11,6 +11,78 @@ public class UserRepo : IUserRepo
     }
 
     //crud
+    /// <summary>
+    /// Get paged customers with optional search and sorting
+    /// </summary>
+    /// <param name="request"></param>
+    /// <returns></returns>
+    public async Task<PagedResult<User>> GetCustomersAsync(PagedRequest request)
+    {
+        var query = _context.Users.AsQueryable();
+
+        // Filter search
+        if (!string.IsNullOrEmpty(request.Search))
+        {
+            string searchLower = request.Search.ToLower();
+            query = query.Where(u =>
+                u.FirstName.ToLower().Contains(searchLower) ||
+                u.LastName.ToLower().Contains(searchLower) ||
+                u.Email.ToLower().Contains(searchLower) ||
+                (u.Phone != null && u.Phone.Contains(request.Search))
+            );
+        }
+
+        // Sort
+        if (!string.IsNullOrEmpty(request.Sort))
+        {
+            // Ví dụ: "createdAt_desc" hoặc "email_asc"
+            var sortParts = request.Sort.Split('_', StringSplitOptions.RemoveEmptyEntries);
+            if (sortParts.Length == 2)
+            {
+                string sortField = sortParts[0].ToLower();
+                string sortDir = sortParts[1].ToLower();
+
+                query = (sortField, sortDir) switch
+                {
+                    ("createdat", "asc") => query.OrderBy(u => u.CreatedAt),
+                    ("createdat", "desc") => query.OrderByDescending(u => u.CreatedAt),
+                    ("email", "asc") => query.OrderBy(u => u.Email),
+                    ("email", "desc") => query.OrderByDescending(u => u.Email),
+                    ("firstname", "asc") => query.OrderBy(u => u.FirstName),
+                    ("firstname", "desc") => query.OrderByDescending(u => u.FirstName),
+                    _ => query.OrderByDescending(u => u.CreatedAt) // default
+                };
+            }
+            else
+            {
+                query = query.OrderByDescending(u => u.CreatedAt);
+            }
+        }
+        else
+        {
+            query = query.OrderByDescending(u => u.CreatedAt); // default sort
+        }
+
+        // Total count trước khi phân trang
+        int totalCount = await query.CountAsync();
+
+        // Paging
+        var users = await query
+            .Skip((request.Page - 1) * request.Size)
+            .Take(request.Size)
+            .ToListAsync();
+
+        // Trả về PagedResult
+        return new PagedResult<User>
+        {
+            Items = users,
+            Page = request.Page,
+            PageSize = request.Size,
+            TotalCount = totalCount
+        };
+    }
+
+
     public Task<User> AddUserAsync(User user)
     {
         _context.Users.Add(user);
@@ -147,7 +219,7 @@ public class UserRepo : IUserRepo
 
         // ✅ OTP đúng -> Reset password
         user.PasswordHash = newPasswordHash;
-        
+
         // Clear OTP sau khi dùng xong
         user.PasswordResetOtp = null;
         user.OtpExpiryTime = null;
@@ -156,5 +228,191 @@ public class UserRepo : IUserRepo
         _context.SaveChanges();
         return true;
     }
+
+
+    //admin
+    /// <summary>
+    /// Get total customers count within an optional date range
+    /// </summary>
+    /// <param name="fromDate"></param>
+    /// <param name="toDate"></param>
+    /// <returns></returns>
+    /// <exception cref="Exception"></exception>
+    public async Task<int> GetTotalCustomersCountAsync(DateTime? fromDate = null, DateTime? toDate = null)
+    {
+        var query = _context.Users.AsQueryable();
+
+        // Apply date filters if provided
+        if (fromDate.HasValue)
+        {
+            query = query.Where(u => u.CreatedAt >= fromDate.Value);
+        }
+
+        if (toDate.HasValue)
+        {
+            query = query.Where(u => u.CreatedAt <= toDate.Value);
+        }
+
+        // Count total customers
+        var totalCount = await query.CountAsync();
+
+        return totalCount;
+    }
+
+    #region Address Methods
+
+    /// <summary>
+    /// Get all addresses for a specific user
+    /// </summary>
+    /// <param name="userId">User ID</param>
+    /// <returns>List of user addresses</returns>
+    public async Task<IEnumerable<Address>> GetUserAddressesAsync(int userId)
+    {
+        return await _context.Addresses
+            .Where(a => a.UserId == userId)
+            .OrderByDescending(a => a.IsDefault)
+            .ThenByDescending(a => a.CreatedAt)
+            .ToListAsync();
+    }
+
+    /// <summary>
+    /// Get address by ID
+    /// </summary>
+    /// <param name="addressId">Address ID</param>
+    /// <returns>Address or null if not found</returns>
+    public async Task<Address?> GetAddressByIdAsync(int addressId)
+    {
+        return await _context.Addresses
+            .FirstOrDefaultAsync(a => a.Id == addressId);
+    }
+
+    /// <summary>
+    /// Add a new address
+    /// </summary>
+    /// <param name="address">Address to add</param>
+    /// <returns>Added address</returns>
+    public async Task<Address> AddAddressAsync(Address address)
+    {
+        // Set created date
+        address.CreatedAt = DateTime.UtcNow;
+        
+        // If this is the first address for the user, make it default
+        var existingAddressesCount = await _context.Addresses
+            .CountAsync(a => a.UserId == address.UserId);
+        
+        if (existingAddressesCount == 0)
+        {
+            address.IsDefault = true;
+        }
+        
+        _context.Addresses.Add(address);
+        await _context.SaveChangesAsync();
+        
+        return address;
+    }
+
+    /// <summary>
+    /// Update an existing address
+    /// </summary>
+    /// <param name="address">Address with updated information</param>
+    /// <returns>True if successful, false if address not found</returns>
+    public async Task<bool> UpdateAddressAsync(Address address)
+    {
+        var existingAddress = await _context.Addresses
+            .FirstOrDefaultAsync(a => a.Id == address.Id);
+        
+        if (existingAddress == null)
+            return false;
+        
+        // Update properties
+        existingAddress.AddressType = address.AddressType;
+        existingAddress.RecipientName = address.RecipientName;
+        existingAddress.Phone = address.Phone;
+        existingAddress.AddressLine1 = address.AddressLine1;
+        existingAddress.AddressLine2 = address.AddressLine2;
+        existingAddress.Ward = address.Ward;
+        existingAddress.District = address.District;
+        existingAddress.City = address.City;
+        existingAddress.Province = address.Province;
+        existingAddress.PostalCode = address.PostalCode;
+        
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
+    /// <summary>
+    /// Delete an address
+    /// </summary>
+    /// <param name="addressId">Address ID to delete</param>
+    /// <returns>True if successful, false if address not found</returns>
+    public async Task<bool> DeleteAddressAsync(int addressId)
+    {
+        var address = await _context.Addresses
+            .FirstOrDefaultAsync(a => a.Id == addressId);
+        
+        if (address == null)
+            return false;
+        
+        // If deleting default address, set another address as default
+        if (address.IsDefault == true)
+        {
+            var nextAddress = await _context.Addresses
+                .Where(a => a.UserId == address.UserId && a.Id != addressId)
+                .OrderByDescending(a => a.CreatedAt)
+                .FirstOrDefaultAsync();
+            
+            if (nextAddress != null)
+            {
+                nextAddress.IsDefault = true;
+            }
+        }
+        
+        _context.Addresses.Remove(address);
+        await _context.SaveChangesAsync();
+        
+        return true;
+    }
+
+    /// <summary>
+    /// Set an address as default for a user
+    /// </summary>
+    /// <param name="userId">User ID</param>
+    /// <param name="addressId">Address ID to set as default</param>
+    /// <returns>True if successful</returns>
+    public async Task<bool> SetDefaultAddressAsync(int userId, int addressId)
+    {
+        // Verify the address belongs to the user
+        var targetAddress = await _context.Addresses
+            .FirstOrDefaultAsync(a => a.Id == addressId && a.UserId == userId);
+        
+        if (targetAddress == null)
+            return false;
+        
+        // Remove default from all user addresses
+        var userAddresses = await _context.Addresses
+            .Where(a => a.UserId == userId)
+            .ToListAsync();
+        
+        foreach (var addr in userAddresses)
+        {
+            addr.IsDefault = addr.Id == addressId;
+        }
+        
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
+    /// <summary>
+    /// Get the default address for a user
+    /// </summary>
+    /// <param name="userId">User ID</param>
+    /// <returns>Default address or null if not found</returns>
+    public async Task<Address?> GetDefaultAddressAsync(int userId)
+    {
+        return await _context.Addresses
+            .FirstOrDefaultAsync(a => a.UserId == userId && a.IsDefault == true);
+    }
+
+    #endregion
 
 }
