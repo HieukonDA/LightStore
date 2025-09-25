@@ -28,5 +28,5 @@ public interface IOrderService
     Task<ServiceResult<int>> GetTotalOrdersCountAsync(DateTime? fromDate = null, DateTime? toDate = null, CancellationToken ct = default);
     Task<ServiceResult<decimal>> GetAverageOrderValueAsync(DateTime? fromDate = null, DateTime? toDate = null, CancellationToken ct = default);
     Task<ServiceResult<List<SalesDataPoint>>> GetSalesByMonthAsync(int months = 6, CancellationToken ct = default);
-    Task<ServiceResult<IEnumerable<Order>>> GetRecentOrdersAsync(int limit = 10, CancellationToken ct = default);
+    Task<ServiceResult<IEnumerable<OrderDto>>> GetRecentOrdersAsync(int limit = 10, CancellationToken ct = default);
 }

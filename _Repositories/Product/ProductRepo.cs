@@ -191,6 +191,68 @@ public class ProductRepo : IProductRepo
         };
     }
 
+    public async Task<PagedResult<Product>> GetByCategorySlugAsync(string categorySlug, PagedRequest pagedRequest)
+    {
+        if (string.IsNullOrWhiteSpace(categorySlug))
+            throw new ArgumentException("Category slug is required", nameof(categorySlug));
+
+        // Join với bảng Category theo Slug
+        var query = _context.Products
+            .Include(p => p.Category)
+            .Include(p => p.Brand)
+            .Include(p => p.ProductImages.Where(img => img.IsPrimary == true))
+            .Where(p => p.IsActive && p.Category != null && p.Category.Slug == categorySlug)
+            .AsQueryable();
+
+        // Search
+        if (!string.IsNullOrEmpty(pagedRequest.Search))
+        {
+            query = query.Where(p => p.Name.Contains(pagedRequest.Search) ||
+                                    p.Description.Contains(pagedRequest.Search));
+        }
+
+        // Sorting
+        if (!string.IsNullOrEmpty(pagedRequest.Sort))
+        {
+            switch (pagedRequest.Sort.ToLower())
+            {
+                case "name":
+                    query = query.OrderBy(p => p.Name);
+                    break;
+                case "createdat":
+                    query = query.OrderBy(p => p.CreatedAt);
+                    break;
+                default:
+                    query = query.OrderBy(p => p.Name);
+                    break;
+            }
+        }
+        else
+        {
+            query = query.OrderBy(p => p.Name);
+        }
+
+        // Total count
+        var totalCount = await query.CountAsync();
+
+        // Pagination
+        var products = await query
+            .Skip((pagedRequest.Page - 1) * pagedRequest.Size)
+            .Take(pagedRequest.Size)
+            .ToListAsync();
+
+        return new PagedResult<Product>
+        {
+            Items = products,
+            TotalCount = totalCount,
+            Page = pagedRequest.Page,
+            PageSize = pagedRequest.Size
+        };
+    }
+
+
+
+
     public async Task<Dictionary<int, ProductAvailabilityInfo>> GetProductsAvailabilityWithLockAsync(
         List<int> productIds,
         IDbContextTransaction transaction)

@@ -76,10 +76,20 @@ public class OrderController : ControllerBase
     {
         var result = await _orderService.GetOrdersByUserAsync(userId, ct);
 
-        if (!result.Success)
-            return NotFound(new { message = result.Message, errors = result.Errors });
+        if (result.Data == null || !result.Data.Any())
+        {
+            return Ok(new
+            {
+                message = "No orders found for user",
+                data = new List<object>()
+            });
+        }
 
-        return Ok(new { success = true, data = result.Data, message = result.Message });
+        return Ok(new
+        {
+            message = "Orders retrieved",
+            data = result.Data
+        });
     }
 
     [HttpGet("{orderId:int}/history")]

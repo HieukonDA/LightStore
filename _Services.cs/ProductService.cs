@@ -341,6 +341,52 @@ public class ProductService : IProductService
     }
 
 
+    public async Task<ServiceResult<PagedResult<ProductListDto>>> GetByCategorySlugAsync(string slug, PagedRequest pagedRequest)
+    {
+        try
+        {
+            _logger.LogInformation("Fetching products by category slug {CategorySlug}", slug);
+
+            // Validate paged request
+            var validationResult = ValidatePagedRequest<PagedResult<ProductListDto>>(pagedRequest);
+            if (!validationResult.Success)
+            {
+                return validationResult;
+            }
+
+            // Validate slug
+            if (string.IsNullOrWhiteSpace(slug))
+            {
+                return ServiceResult<PagedResult<ProductListDto>>.FailureResult("Category slug cannot be empty", new List<string>());
+            }
+
+            // Call repository
+            var result = await _productRepo.GetByCategorySlugAsync(slug, pagedRequest);
+            if (result == null)
+            {
+                _logger.LogWarning("Repository returned null result for GetByCategorySlugAsync");
+                return ServiceResult<PagedResult<ProductListDto>>.FailureResult("No data available", new List<string>());
+            }
+
+            var productListDtos = result.Items.Select(MapToListDto).ToList();
+
+            return ServiceResult<PagedResult<ProductListDto>>.SuccessResult(new PagedResult<ProductListDto>
+            {
+                Items = productListDtos,
+                TotalCount = result.TotalCount,
+                Page = pagedRequest.Page,
+                PageSize = pagedRequest.Size
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error occurred while fetching products by category slug {CategorySlug}", slug);
+            return ServiceResult<PagedResult<ProductListDto>>.FailureResult("An error occurred while processing your request", new List<string> { ex.Message });
+        }
+    }
+
+
+
 
 
     #endregion

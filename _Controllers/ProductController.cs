@@ -37,6 +37,17 @@ public class ProductController : ControllerBase
         return BadRequest(result.Errors);
     }
 
+    [HttpGet("category/slug/{slug}")]
+    public async Task<IActionResult> GetByCategorySlugAsync(string slug, [FromQuery] PagedRequest pagedRequest)
+    {
+        var result = await _productService.GetByCategorySlugAsync(slug, pagedRequest);
+        if (result.Success)
+        {
+            return Ok(result);
+        }
+        return BadRequest(result.Errors);
+    }
+
     [HttpGet("id/{id}")]
     public async Task<IActionResult> GetByIdAsync(int id)
     {

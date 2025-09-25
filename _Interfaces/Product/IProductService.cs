@@ -18,6 +18,7 @@ public interface IProductService
     // Task<ServiceResult<List<ProductListDto>>> GetFeaturedAsync(int count = 10);
     // Task<ServiceResult<List<ProductListDto>>> GetNewProductsAsync(int count = 10);
     Task<ServiceResult<PagedResult<ProductListDto>>> GetByCategoryAsync(int categoryId, PagedRequest pagedRequest);
+    Task<ServiceResult<PagedResult<ProductListDto>>> GetByCategorySlugAsync(string slug, PagedRequest pagedRequest);
     // Task<ServiceResult<List<ProductListDto>>> GetRelatedAsync(int productId, int count = 5);
 
     // // Stock & Inventory

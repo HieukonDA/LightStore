@@ -1,4 +1,5 @@
 using TheLightStore.Interfaces.Orders;
+using TheLightStore.Dtos.Orders;
 
 namespace TheLightStore.Controllers.Dashboard;
 
@@ -239,9 +240,9 @@ public class DashboardController : ControllerBase
     /// Get recent orders for dashboard
     /// </summary>
     /// <param name="limit">Number of recent orders to retrieve (default: 10)</param>
-    /// <returns>List of recent orders</returns>
+    /// <returns>List of recent orders as DTOs</returns>
     [HttpGet("recent-orders")]
-    [ProducesResponseType(typeof(ServiceResult<IEnumerable<Order>>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ServiceResult<IEnumerable<OrderDto>>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> GetRecentOrders([FromQuery] int limit = 10)

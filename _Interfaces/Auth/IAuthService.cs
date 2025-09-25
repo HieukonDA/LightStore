@@ -2,14 +2,20 @@ namespace TheLightStore.Interfaces.Auth;
 
 public interface IAuthService
 {
-    Task<ServiceResult<AuthResponseDto>> RegisterAsync(RegisterDto registerDto);
+    // Đăng nhập
     Task<ServiceResult<AuthResponseDto>> LoginAsync(LoginDto loginDto);
+    
+    // Đăng ký 2 bước: gửi OTP + xác thực OTP
+    Task<ServiceResult<bool>> SendRegistrationOtpAsync(RegisterDto registerDto);
+    Task<ServiceResult<AuthResponseDto>> VerifyRegistrationOtpAsync(VerifyRegistrationOtpDto verifyDto);
 
+    // Quên mật khẩu
     Task<ServiceResult<bool>> ForgotPasswordAsync(ForgotPasswordDto forgotPasswordDto);
-    Task<ServiceResult<bool>> ChangePasswordAsync(ChangePasswordDto changePasswordDto);
-
     Task<ServiceResult<bool>> ResetPasswordWithOtpAsync(ResetPasswordDto resetDto);
     Task<ServiceResult<bool>> ResendOtpAsync(string email);
+    
+    // Đổi mật khẩu (đã đăng nhập)
+    Task<ServiceResult<bool>> ChangePasswordAsync(ChangePasswordDto changePasswordDto);
 
     // Task<AuthResponseDto> LoginWithGoogleAsync(GoogleLoginDto googleLoginDto);
 

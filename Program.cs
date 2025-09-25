@@ -20,6 +20,7 @@ using TheLightStore.Services.Notifications;
 using TheLightStore.Services.Orders;
 using TheLightStore.Services.Payment;
 using TheLightStore.Services.Search;
+using TheLightStore.Hubs;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -134,6 +135,9 @@ builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 
+// SignalR
+builder.Services.AddSignalR();
+
 builder.Services.AddScoped<ISearchService, SearchService>();
 
 // Swagger
@@ -212,5 +216,8 @@ app.UseStaticFiles(new StaticFileOptions
 
 app.UseRateLimiter();
 app.MapControllers();       // 5. Map controllers
+
+// SignalR Hub
+app.MapHub<NotificationHub>("/notificationHub");
 
 app.Run();

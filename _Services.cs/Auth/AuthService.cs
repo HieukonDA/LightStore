@@ -13,6 +13,8 @@ public class AuthService : IAuthService
     private readonly IEmailService _emailService;
     private readonly IRbacService _rbacService;
     private static readonly Dictionary<string, OtpData> _otpCache = new();
+    private static readonly Dictionary<string, PendingRegistration> _pendingRegistrations = new();
+  
     private static readonly object _cacheLock = new();
 
     public AuthService(DBContext context, IUserRepo userRepo, ILogger<AuthService> logger, IConfiguration configuration, IHttpContextAccessor httpContextAccessor, IEmailService emailService, IRbacService rbacService)
@@ -27,74 +29,6 @@ public class AuthService : IAuthService
     }
 
     #region implement interfaces
-
-    // public async Task<ServiceResult<AuthResponseDto>> LoginAsync(LoginDto loginDto)
-    // {
-    //     try
-    //     {
-    //         _logger.LogInformation("Attempting login for user: {Email}", loginDto.Email);
-    //         //validate loginDto
-    //         if (string.IsNullOrWhiteSpace(loginDto.Email) || string.IsNullOrWhiteSpace(loginDto.Password))
-    //         {
-    //             return ServiceResult<AuthResponseDto>.FailureResult("Email and password are required.", new List<string>());
-    //         }
-
-    //         //find user by email
-    //         var user = await _userRepo.GetUserByEmailAsync(loginDto.Email);
-
-    //         if (user == null)
-    //         {
-    //             _logger.LogWarning("Login failed for user: {Email}. User not found.", loginDto.Email);
-    //             return ServiceResult<AuthResponseDto>.FailureResult("Invalid email or password.", new List<string>());
-    //         }
-
-    //         // verify password
-    //         bool isPasswordValid = BCrypt.Net.BCrypt.Verify(loginDto.Password, user.PasswordHash);
-
-    //         if (!isPasswordValid)
-    //         {
-    //             _logger.LogWarning("Login failed for user: {Email}. Invalid password.", loginDto.Email);
-    //             return ServiceResult<AuthResponseDto>.FailureResult("Invalid email or password.", new List<string>());
-    //         }
-
-    //         //create token
-    //         var accessToken = GenerateAccessToken(user);
-    //         var refreshToken = GenerateRefreshToken();
-
-    //         //save refresh token to database
-    //         await SaveRefreshTokenAsync(user.Id, refreshToken);
-
-    //         var response = new AuthResponseDto
-    //         {
-    //             AccessToken = accessToken,
-    //             RefreshToken = refreshToken,
-    //             ExpireAt = DateTime.Now.AddMinutes(GetJwtExpirationMinutes()),
-    //             User = new UserDto
-    //             {
-    //                 Id = user.Id,
-    //                 Email = user.Email,
-    //                 FirstName = user.FirstName,
-    //                 LastName = user.LastName,
-    //                 Phone = user.Phone,
-    //                 UserType = user.UserType,
-    //                 CreatedAt = user.CreatedAt,
-    //                 Roles = await _rbacService.GetUserRolesAsync(user.Id)
-    //             }
-    //         };
-
-    //         _logger.LogInformation($"Login successful for user: {user.Email}");
-
-    //         return ServiceResult<AuthResponseDto>.SuccessResult(response, "Login successful");
-
-
-    //     }
-    //     catch (System.Exception ex)
-    //     {
-    //         _logger.LogError(ex, $"Login failed with: {loginDto.Email}");
-    //         return ServiceResult<AuthResponseDto>.FailureResult("An error occurred while logging in.", new List<string> { ex.Message });
-    //     }
-
-    // }
 
     public async Task<ServiceResult<AuthResponseDto>> LoginAsync(LoginDto loginDto)
     {
@@ -136,147 +70,260 @@ public class AuthService : IAuthService
     }
 
 
-    // public async Task<ServiceResult<AuthResponseDto>> RegisterAsync(RegisterDto registerDto)
-    // {
-    //     try
-    //     {
-    //         _logger.LogInformation("Registering a new user with email: {Email}", registerDto.Email);
-    //         //validate registerDto
-    //         var errors = ValidateRegisterDto(registerDto);
-    //         if (errors.Any())
-    //         {
-    //             return ServiceResult<AuthResponseDto>.FailureResult("Validation errors occurred.", errors);
-    //         }
+    /// <summary>
+    /// Bước 1: Gửi OTP để verify email trong quá trình đăng ký
+    /// </summary>
+    public async Task<ServiceResult<bool>> SendRegistrationOtpAsync(RegisterDto registerDto)
+    {
+        try
+        {
+            // Validate input
+            var errors = ValidateRegisterDto(registerDto);
+            if (errors.Any())
+            {
+                return ServiceResult<bool>.FailureResult("Validation errors occurred.", errors);
+            }
 
-    //         //check user exist
-    //         var existingUser = await _userRepo.GetUserByEmailAsync(registerDto.Email);
-    //         if (existingUser != null)
-    //         {
-    //             _logger.LogWarning("Registration failed. Email {Email} is already in use.", registerDto.Email);
-    //             return ServiceResult<AuthResponseDto>.FailureResult("Email is already in use.", new List<string>());
-    //         }
+            // Kiểm tra email đã tồn tại
+            var existingUser = await _userRepo.GetUserByEmailAsync(registerDto.Email);
+            if (existingUser != null)
+            {
+                return ServiceResult<bool>.FailureResult("Email already exists.", new List<string>());
+            }
 
-    //         //hash password
-    //         var hashedPassword = BCrypt.Net.BCrypt.HashPassword(registerDto.Password);
+            // Tạo OTP
+            var otp = GenerateOTP();
+            var expiryTime = DateTime.UtcNow.AddMinutes(10);
 
-    //         //create new user
-    //         var newUser = new User
-    //         {
-    //             Email = registerDto.Email,
-    //             PasswordHash = hashedPassword,
-    //             FirstName = registerDto.FirstName,
-    //             LastName = registerDto.LastName,
-    //             Phone = registerDto.Phone,
-    //             UserType = "customer",
-    //             CreatedAt = DateTime.Now
-    //         };
+            // Lưu thông tin đăng ký tạm thời
+            lock (_cacheLock)
+            {
+                _pendingRegistrations[registerDto.Email] = new PendingRegistration
+                {
+                    Email = registerDto.Email,
+                    FirstName = registerDto.FirstName,
+                    LastName = registerDto.LastName,
+                    Phone = registerDto.Phone,
+                    PasswordHash = BCrypt.Net.BCrypt.HashPassword(registerDto.Password),
+                    Otp = otp,
+                    ExpiresAt = expiryTime,
+                    Attempts = 0
+                };
+            }
 
-    //         //add user
-    //         await _userRepo.AddUserAsync(newUser);
-    //         await _context.SaveChangesAsync();
+            // Gửi email OTP
+            await _emailService.SendEmailAsync(
+                registerDto.Email,
+                "Email Verification - LightStore",
+                $"<h2>Welcome to LightStore!</h2>" +
+                $"<p>Thank you for registering with us. Please verify your email address.</p>" +
+                $"<p>Your verification code is: <strong>{otp}</strong></p>" +
+                $"<p>This code will expire in 10 minutes.</p>" +
+                $"<p>If you didn't create an account, please ignore this email.</p>"
+            );
 
-    //         //send welcome email
-    //         await _emailService.SendEmailAsync(
-    //             newUser.Email,
-    //             "Welcome to LightStore!",
-    //             $"<h2>Hello {newUser.FirstName}!</h2><p>Thank you for registering at LightStore.</p>"
-    //         );
+            _logger.LogInformation("Registration OTP sent to email: {Email}", registerDto.Email);
+            return ServiceResult<bool>.SuccessResult(true, "OTP has been sent to your email address. Please verify to complete registration.");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to send registration OTP for {Email}", registerDto.Email);
+            return ServiceResult<bool>.FailureResult("An error occurred while sending verification email.", new List<string> { ex.Message });
+        }
+    }
 
-    //         //create token
-    //         var accessToken = GenerateAccessToken(newUser);
-    //         var refreshToken = GenerateRefreshToken();
+    /// <summary>
+    /// Bước 2: Xác thực OTP và tạo tài khoản
+    /// </summary>
+    public async Task<ServiceResult<AuthResponseDto>> VerifyRegistrationOtpAsync(VerifyRegistrationOtpDto verifyDto)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(verifyDto.Email) || string.IsNullOrWhiteSpace(verifyDto.Otp))
+            {
+                return ServiceResult<AuthResponseDto>.FailureResult("Email and OTP are required.", new List<string>());
+            }
 
-    //         //save refresh token
-    //         await SaveRefreshTokenAsync(newUser.Id, refreshToken);
+            PendingRegistration pendingReg;
+            lock (_cacheLock)
+            {
+                if (!_pendingRegistrations.TryGetValue(verifyDto.Email, out pendingReg))
+                {
+                    return ServiceResult<AuthResponseDto>.FailureResult("Invalid or expired verification code.", new List<string>());
+                }
+            }
 
-    //         //return response
-    //         var response = new AuthResponseDto
-    //         {
-    //             AccessToken = accessToken,
-    //             RefreshToken = refreshToken,
-    //             ExpireAt = DateTime.Now.AddMinutes(GetJwtExpirationMinutes()),
-    //             User = new UserDto
-    //             {
-    //                 Id = newUser.Id,
-    //                 Email = newUser.Email,
-    //                 FirstName = newUser.FirstName,
-    //                 LastName = newUser.LastName,
-    //                 Phone = newUser.Phone,
-    //                 UserType = newUser.UserType,
-    //                 CreatedAt = newUser.CreatedAt
-    //             }
-    //         };
+            // Kiểm tra số lần thử
+            if (pendingReg.Attempts >= 5)
+            {
+                lock (_cacheLock)
+                {
+                    _pendingRegistrations.Remove(verifyDto.Email);
+                }
+                return ServiceResult<AuthResponseDto>.FailureResult("Too many failed attempts. Please request a new verification code.", new List<string>());
+            }
 
-    //         _logger.LogInformation("User registered successfully with email: {Email}", registerDto.Email);
-    //         return ServiceResult<AuthResponseDto>.SuccessResult(response);
+            // Kiểm tra hết hạn
+            if (DateTime.UtcNow > pendingReg.ExpiresAt)
+            {
+                lock (_cacheLock)
+                {
+                    _pendingRegistrations.Remove(verifyDto.Email);
+                }
+                return ServiceResult<AuthResponseDto>.FailureResult("Verification code has expired. Please request a new one.", new List<string>());
+            }
 
-    //     }
-    //     catch (System.Exception ex)
-    //     {
-    //         _logger.LogError(ex, "An error occurred while registering a new user.");
-    //         return ServiceResult<AuthResponseDto>.FailureResult("An error occurred while processing your request.", new List<string>());
-    //     }
-    // }
+            // Kiểm tra OTP
+            if (pendingReg.Otp != verifyDto.Otp)
+            {
+                lock (_cacheLock)
+                {
+                    pendingReg.Attempts++;
+                }
+                return ServiceResult<AuthResponseDto>.FailureResult($"Invalid verification code. {5 - pendingReg.Attempts} attempts remaining.", new List<string>());
+            }
 
+            // OTP đúng -> tạo user
+            var user = new User
+            {
+                FirstName = pendingReg.FirstName,
+                LastName = pendingReg.LastName,
+                Email = pendingReg.Email,
+                Phone = pendingReg.Phone,
+                PasswordHash = pendingReg.PasswordHash,
+                UserType = "customer",
+                EmailVerified = true, // Đánh dấu đã verify email
+                CreatedAt = DateTime.UtcNow
+            };
+
+            await _userRepo.AddUserAsync(user);
+            await _context.SaveChangesAsync();
+
+            // Gửi email chào mừng
+            await _emailService.SendEmailAsync(
+                user.Email,
+                "Welcome to LightStore!",
+                $"<h2>Hello {user.FirstName}!</h2>" +
+                $"<p>Your account has been successfully created and verified.</p>" +
+                $"<p>Thank you for joining LightStore!</p>"
+            );
+
+            // Gán role mặc định
+            await _rbacService.AssignRoleToUserAsync(user.Id, 2); // roleId=2 là Customer
+
+            var roles = await _rbacService.GetUserRolesAsync(user.Id);
+
+            // Tạo token
+            var accessToken = GenerateAccessToken(user, roles);
+            var refreshToken = GenerateRefreshToken();
+
+            await SaveRefreshTokenAsync(user.Id, refreshToken);
+
+            // Xóa pending registration
+            lock (_cacheLock)
+            {
+                _pendingRegistrations.Remove(verifyDto.Email);
+            }
+
+            var response = new AuthResponseDto
+            {
+                AccessToken = accessToken,
+                RefreshToken = refreshToken,
+                ExpireAt = DateTime.UtcNow.AddMinutes(GetJwtExpirationMinutes()),
+                User = new UserDto
+                {
+                    Id = user.Id,
+                    Email = user.Email,
+                    FirstName = user.FirstName,
+                    LastName = user.LastName,
+                    Phone = user.Phone,
+                    UserType = user.UserType,
+                    CreatedAt = user.CreatedAt,
+                    Roles = roles.ToList()
+                }
+            };
+
+            _logger.LogInformation("User registered successfully with email: {Email}", user.Email);
+            return ServiceResult<AuthResponseDto>.SuccessResult(response, "Registration successful! Welcome to LightStore.");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to verify registration OTP for {Email}", verifyDto.Email);
+            return ServiceResult<AuthResponseDto>.FailureResult("An error occurred while verifying your email.", new List<string> { ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Gửi lại OTP cho registration
+    /// </summary>
+    public async Task<ServiceResult<bool>> ResendRegistrationOtpAsync(string email)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(email))
+            {
+                return ServiceResult<bool>.FailureResult("Email is required.", new List<string>());
+            }
+
+            PendingRegistration pendingReg;
+            lock (_cacheLock)
+            {
+                if (!_pendingRegistrations.TryGetValue(email, out pendingReg))
+                {
+                    return ServiceResult<bool>.FailureResult("No pending registration found for this email.", new List<string>());
+                }
+
+                // Kiểm tra thời gian gửi lại (chỉ cho phép gửi lại sau 2 phút)
+                if (DateTime.UtcNow < pendingReg.ExpiresAt.AddMinutes(-8))
+                {
+                    return ServiceResult<bool>.FailureResult("Please wait before requesting a new verification code.", new List<string>());
+                }
+            }
+
+            // Tạo OTP mới
+            var newOtp = GenerateOTP();
+            var newExpiryTime = DateTime.UtcNow.AddMinutes(10);
+
+            lock (_cacheLock)
+            {
+                pendingReg.Otp = newOtp;
+                pendingReg.ExpiresAt = newExpiryTime;
+                pendingReg.Attempts = 0; // Reset attempts
+            }
+
+            // Gửi email OTP mới
+            await _emailService.SendEmailAsync(
+                email,
+                "New Verification Code - LightStore",
+                $"<h2>Email Verification</h2>" +
+                $"<p>Your new verification code is: <strong>{newOtp}</strong></p>" +
+                $"<p>This code will expire in 10 minutes.</p>" +
+                $"<p>If you didn't request this, please ignore this email.</p>"
+            );
+
+            _logger.LogInformation("New registration OTP sent to email: {Email}", email);
+            return ServiceResult<bool>.SuccessResult(true, "A new verification code has been sent to your email.");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to resend registration OTP for {Email}", email);
+            return ServiceResult<bool>.FailureResult("An error occurred while sending verification code.", new List<string> { ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Legacy RegisterAsync method - giữ để backward compatibility
+    /// </summary>
     public async Task<ServiceResult<AuthResponseDto>> RegisterAsync(RegisterDto registerDto)
     {
-        var existingUser = await _userRepo.GetUserByEmailAsync(registerDto.Email);
-        if (existingUser != null)
+        // Redirect to new OTP-based flow
+        var otpResult = await SendRegistrationOtpAsync(registerDto);
+        if (!otpResult.Success)
         {
-            return ServiceResult<AuthResponseDto>.FailureResult("Email already exists.", new List<string>());
+            return ServiceResult<AuthResponseDto>.FailureResult(otpResult.Message, otpResult.Errors);
         }
 
-        var user = new User
-        {
-            FirstName = registerDto.FirstName,
-            LastName = registerDto.LastName,
-            Email = registerDto.Email,
-            Phone = registerDto.Phone,
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword(registerDto.Password),
-            UserType = "customer",
-            CreatedAt = DateTime.UtcNow
-        };
-
-        //add user
-        await _userRepo.AddUserAsync(user);
-        await _context.SaveChangesAsync();
-
-        await _emailService.SendEmailAsync(
-            user.Email,
-            "Welcome to LightStore!",
-            $"<h2>Hello {user.FirstName}!</h2><p>Thank you for registering at LightStore.</p>"
-        );
-
-        // Gán role mặc định
-        await _rbacService.AssignRoleToUserAsync(user.Id, /*roleId =*/ 2); // ví dụ roleId=2 là Customer
-
-        var roles = await _rbacService.GetUserRolesAsync(user.Id);
-
-        // Tạo token
-        var accessToken = GenerateAccessToken(user, roles);
-        var refreshToken = GenerateRefreshToken();
-
-        await SaveRefreshTokenAsync(user.Id, refreshToken);
-
-        var response = new AuthResponseDto
-        {
-            AccessToken = accessToken,
-            RefreshToken = refreshToken,
-            ExpireAt = DateTime.UtcNow.AddMinutes(GetJwtExpirationMinutes()),
-            User = new UserDto
-            {
-                Id = user.Id,
-                Email = user.Email,
-                FirstName = user.FirstName,
-                LastName = user.LastName,
-                Phone = user.Phone,
-                UserType = user.UserType,
-                CreatedAt = user.CreatedAt,
-                Roles = roles.ToList()
-            }
-        };
-
-        return ServiceResult<AuthResponseDto>.SuccessResult(response, "Registration successful");
+        return ServiceResult<AuthResponseDto>.FailureResult("Please verify your email to complete registration.", new List<string>());
     }
 
 

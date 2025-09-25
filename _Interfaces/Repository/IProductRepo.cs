@@ -19,6 +19,7 @@ public interface IProductRepo
     // Task<IEnumerable<Product>> GetFeaturedAsync(int count = 10);
     // Task<IEnumerable<Product>> GetNewProductsAsync(int count = 10);
     Task<PagedResult<Product>> GetByCategoryAsync(int categoryId, PagedRequest pagedRequest);
+    Task<PagedResult<Product>> GetByCategorySlugAsync(string slug, PagedRequest pagedRequest);
     // Task<IEnumerable<Product>> GetByBrandAsync(int brandId, int count = 20);
     // Task<IEnumerable<Product>> GetRelatedAsync(int productId, int count = 5);
     // Task<IEnumerable<Product>> GetByIdsAsync(IEnumerable<int> ids);

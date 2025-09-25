@@ -1,4 +1,5 @@
 using TheLightStore.Dtos.Orders;
+using TheLightStore.Interfaces.Notifications;
 using TheLightStore.Interfaces.Orders;
 using TheLightStore.Interfaces.Payment;
 
@@ -9,19 +10,20 @@ public class PaymentService : IPaymentService
     private readonly IPaymentRepo _paymentRepo;
     private readonly IOrderRepo _orderRepo;
     private readonly IInventoryService _inventoryService;
+    private readonly INotificationService _notificationService;
     private readonly ILogger<PaymentService> _logger;
     private readonly IMomoService _momoService;
     private readonly IConfiguration _configuration;
 
-    public PaymentService(IPaymentRepo paymentRepo, IOrderRepo orderRepo, IInventoryService inventoryService, ILogger<PaymentService> logger, IMomoService momoService, IConfiguration configuration)
+    public PaymentService(IPaymentRepo paymentRepo, IOrderRepo orderRepo, IInventoryService inventoryService, INotificationService notificationService, ILogger<PaymentService> logger, IMomoService momoService, IConfiguration configuration)
     {
         _paymentRepo = paymentRepo;
         _orderRepo = orderRepo;
         _inventoryService = inventoryService;
+        _notificationService = notificationService;
         _logger = logger;
         _momoService = momoService;
         _configuration = configuration;
-        _momoService = momoService;
     }
 
     public async Task<OrderPaymentDto> CreatePaymentAsync(int orderId, decimal amount, string method)
@@ -114,6 +116,9 @@ public class PaymentService : IPaymentService
                 order.OrderStatus = OrderStatus.Confirmed;
                 await _orderRepo.UpdateAsync(order);
                 await _orderRepo.SaveChangesAsync();
+
+                // Gửi thông báo thanh toán thành công
+                await _notificationService.NotifyPaymentSuccessAsync(order);
             }
         }
         else
@@ -126,11 +131,13 @@ public class PaymentService : IPaymentService
             if (order != null)
             {
                 await _inventoryService.ReleaseReservationsAsync(order.Id.ToString());
+                var oldStatus = order.OrderStatus.ToString();
                 order.OrderStatus = OrderStatus.Cancelled;
                 await _orderRepo.UpdateAsync(order);
                 await _orderRepo.SaveChangesAsync();
-                // Thông báo thất bại
-                // await _notificationService.NotifyOrderStatusChangedAsync(order, "Pending", "Cancelled");
+                
+                // Thông báo thanh toán thất bại
+                await _notificationService.NotifyOrderUpdateAsync(order, oldStatus, "Cancelled");
             }
         }
 

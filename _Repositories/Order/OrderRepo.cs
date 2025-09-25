@@ -76,6 +76,7 @@ public class OrderRepo : IOrderRepo
         return await _context.Orders
             .Where(o => o.UserId == userId)
             .Include(o => o.OrderItems)
+            .OrderByDescending(o => o.OrderDate)
             .ToListAsync(ct);
     }
 

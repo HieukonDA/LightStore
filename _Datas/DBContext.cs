@@ -1,5 +1,6 @@
 namespace TheLightStore.Datas;
 using TheLightStore.Models.Attributes;
+using TheLightStore.Models.Notifications;
 using Microsoft.EntityFrameworkCore;
 
 
@@ -68,6 +69,8 @@ public partial class DBContext : DbContext
     public virtual DbSet<User> Users { get; set; }
 
     public DbSet<Role> Roles { get; set; }
+
+    public virtual DbSet<Notification> Notifications { get; set; }
 
     public DbSet<Permission> Permissions { get; set; }
 

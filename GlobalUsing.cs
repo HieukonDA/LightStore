@@ -89,3 +89,4 @@ global using System.Text.Json;
 global using Microsoft.AspNetCore.Authorization;
 global using System.ComponentModel.DataAnnotations;
 global using System.Text.Json.Serialization;
+global using Microsoft.AspNetCore.SignalR;

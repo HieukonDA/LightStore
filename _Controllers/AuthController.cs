@@ -39,13 +39,13 @@ public class AuthController : ControllerBase
     [HttpPost("register")]
     public async Task<IActionResult> Register([FromBody] RegisterDto registerDto)
     {
-        var result = await _authService.RegisterAsync(registerDto);
+        var result = await _authService.SendRegistrationOtpAsync(registerDto);
         if (result.Success)
         {
             return Ok(new
             {
-                message = "Registration successful",
-                data = result.Data
+                message = "Registration OTP sent successfully. Please check your email for the OTP to verify your account.",
+                success = true
             });
         }
         return BadRequest(new
@@ -54,6 +54,28 @@ public class AuthController : ControllerBase
             errors = result.Errors
         });
     }
+
+    [HttpPost("verify-registration-otp")]
+    public async Task<IActionResult> VerifyRegistrationOtp([FromBody] VerifyRegistrationOtpDto dto)
+    {
+        var result = await _authService.VerifyRegistrationOtpAsync(dto);
+        if (result.Success)
+        {
+            return Ok(new
+            {
+                message = "Account verified successfully. You are now logged in.",
+                data = result.Data,
+                success = true
+            });
+        }
+
+        return BadRequest(new
+        {
+            message = "Verification failed",
+            errors = result.Errors
+        });
+    }
+
 
     [HttpPost("forgot-password")]
     public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordDto forgotPasswordDto)

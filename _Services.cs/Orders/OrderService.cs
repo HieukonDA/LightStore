@@ -145,7 +145,10 @@ public class OrderService : IOrderService
             // }, ct);
             // await _orderRepo.SaveChangesAsync(ct);
 
-            // Console.WriteLine("[SUCCESS] Order created successfully.");
+            // 4. Gửi thông báo đơn hàng mới
+            await _notificationService.NotifyNewOrderAsync(order, ct);
+
+            Console.WriteLine("[SUCCESS] Order created successfully.");
             return ServiceResult<OrderDto>.SuccessResult(orderDto, "Order created successfully.");
         }
         catch (Exception ex)
@@ -235,6 +238,7 @@ public class OrderService : IOrderService
                 return ServiceResult<bool>.FailureResult("Order not found", new List<string> { $"Order {orderId} does not exist" });
             }
 
+            var oldStatus = order.OrderStatus.ToString();
             order.OrderStatus = OrderStatus.Confirmed;
             await _orderRepo.UpdateAsync(order, ct);
             await _statusHistoryRepo.AddAsync(new OrderStatusHistory
@@ -246,6 +250,9 @@ public class OrderService : IOrderService
                 ChangedAt = DateTime.UtcNow
             }, ct);
             await _orderRepo.SaveChangesAsync(ct);
+
+            // Gửi thông báo cập nhật trạng thái
+            await _notificationService.NotifyOrderUpdateAsync(order, oldStatus, order.OrderStatus.ToString(), ct);
 
             Console.WriteLine("[SUCCESS] Order confirmed successfully");
             return ServiceResult<bool>.SuccessResult(true, "Order confirmed successfully");
@@ -301,16 +308,11 @@ public class OrderService : IOrderService
             
             await _orderRepo.SaveChangesAsync(ct);
 
-            // Log và có thể gửi notification
-            _logger.LogInformation("Order {OrderId} moved to processing status", orderId);
+            // Gửi thông báo cập nhật trạng thái
+            await _notificationService.NotifyOrderUpdateAsync(order, oldStatus.ToString(), order.OrderStatus.ToString(), ct);
             
-            // Có thể thêm notification cho customer
-            // try
-            // {
-            //     await _notificationService.SendOrderStatusUpdateAsync(order.Id, order.OrderStatus);
-            // }
-            // catch (Exception notifEx)
-            // {
+            // Log
+            _logger.LogInformation("Order {OrderId} moved to processing status", orderId);
             //     _logger.LogWarning(notifEx, "Failed to send notification for order {OrderId}", orderId);
             //     // Không fail toàn bộ process vì notification
             // }
@@ -580,14 +582,14 @@ public class OrderService : IOrderService
         }
     }
 
-    public async Task<ServiceResult<IEnumerable<Order>>> GetRecentOrdersAsync(int limit = 10, CancellationToken ct = default)
+    public async Task<ServiceResult<IEnumerable<OrderDto>>> GetRecentOrdersAsync(int limit = 10, CancellationToken ct = default)
     {
         try
         {
             if (limit <= 0)
             {
                 Console.WriteLine("[ERROR] Invalid limit parameter");
-                return ServiceResult<IEnumerable<Order>>.FailureResult("Invalid limit parameter", 
+                return ServiceResult<IEnumerable<OrderDto>>.FailureResult("Invalid limit parameter", 
                     new List<string> { "Limit must be greater than 0" });
             }
 
@@ -595,14 +597,35 @@ public class OrderService : IOrderService
             
             var recentOrders = await _orderRepo.GetRecentOrdersAsync(limit, ct);
             
-            Console.WriteLine($"[SUCCESS] {recentOrders?.Count() ?? 0} recent orders retrieved");
-            return ServiceResult<IEnumerable<Order>>.SuccessResult(recentOrders, "Recent orders retrieved successfully");
+            // Map to OrderDto
+            var orderDtos = recentOrders.Select(order => new OrderDto
+            {
+                Id = order.Id,
+                OrderNumber = order.OrderNumber,
+                OrderStatus = order.OrderStatus,
+                OrderDate = order.OrderDate ?? DateTime.UtcNow,
+                Subtotal = order.Subtotal,
+                TaxAmount = order.TaxAmount,
+                ShippingCost = order.ShippingCost,
+                DiscountAmount = order.DiscountAmount,
+                TotalAmount = order.TotalAmount,
+                CustomerName = order.CustomerName,
+                CustomerEmail = order.CustomerEmail,
+                CustomerPhone = order.CustomerPhone,
+                // Note: ShippingAddress, Items, Payment would need additional queries if needed for recent orders
+                ShippingAddress = new OrderAddressDto(), // Empty for recent orders list
+                Items = new List<OrderItemDto>(), // Empty for recent orders list  
+                Payment = new OrderPaymentDto() // Empty for recent orders list
+            }).ToList();
+            
+            Console.WriteLine($"[SUCCESS] {orderDtos.Count} recent orders retrieved and mapped to DTOs");
+            return ServiceResult<IEnumerable<OrderDto>>.SuccessResult(orderDtos, "Recent orders retrieved successfully");
         }
         catch (Exception ex)
         {
             Console.WriteLine($"[EXCEPTION] {ex.Message}");
             _logger.LogError(ex, "Error getting recent orders with limit {Limit}", limit);
-            return ServiceResult<IEnumerable<Order>>.FailureResult("Failed to get recent orders", new List<string> { ex.Message });
+            return ServiceResult<IEnumerable<OrderDto>>.FailureResult("Failed to get recent orders", new List<string> { ex.Message });
         }
     }
 
