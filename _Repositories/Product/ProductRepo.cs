@@ -21,6 +21,7 @@ public class ProductRepo : IProductRepo
        .Where(c => c.IsActive)
        .Include(c => c.Category)
        .Include(c => c.Brand)
+       .Include(c => c.ProductImages.Where(img => img.IsPrimary == true)) // ✅ Include primary image cho list
        .AsQueryable();
 
         // Apply search if provided
@@ -77,6 +78,7 @@ public class ProductRepo : IProductRepo
             .Where(c => c.Id == id && c.IsActive)
             .Include(c => c.Category)
             .Include(c => c.Brand)
+            .Include(c => c.ProductImages) // ✅ Include all images for detail view
             .AsQueryable();
 
         return await query.FirstOrDefaultAsync();
@@ -88,13 +90,8 @@ public class ProductRepo : IProductRepo
             .Where(c => c.Slug == slug && c.IsActive)
             .Include(c => c.Category)
             .Include(c => c.Brand)
+            .Include(c => c.ProductImages) // ✅ Include all images for detail view
             .AsQueryable();
-
-        if (includeRelated)
-        {
-            query = query.Include(c => c.Category);
-            query = query.Include(c => c.Brand);
-        }
 
         return await query.FirstOrDefaultAsync();
     }
@@ -144,7 +141,8 @@ public class ProductRepo : IProductRepo
         var query = _context.Products
             .Where(c => c.CategoryId == categoryId && c.IsActive)
             .Include(c => c.Category)
-            //.Include(c => c.Brand)
+            .Include(c => c.Brand)
+            .Include(c => c.ProductImages.Where(img => img.IsPrimary == true)) // ✅ Include primary image
             .AsQueryable();
 
         // Apply search if provided

@@ -1,7 +1,9 @@
 
 using Microsoft.AspNetCore.Http.Features;
+using Microsoft.Extensions.FileProviders;
 
 using TheLightStore.Interfaces.Inventory;
+using TheLightStore.Interfaces.Images;
 using TheLightStore.Interfaces.Notification;
 using TheLightStore.Interfaces.Notifications;
 using TheLightStore.Interfaces.Orders;
@@ -12,6 +14,7 @@ using TheLightStore.Repositories.Orders;
 using TheLightStore.Repositories.Payment;
 using TheLightStore.Services.Auth;
 using TheLightStore.Services.BackgroundJobs;
+using TheLightStore.Services.Images;
 using TheLightStore.Services.Inventory;
 using TheLightStore.Services.Notifications;
 using TheLightStore.Services.Orders;
@@ -147,6 +150,7 @@ builder.Services.AddScoped<ICategoryService, CategoryService>();
 builder.Services.AddScoped<ICategoryRepo, CategoryRepo>();
 builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<IProductRepo, ProductRepo>();
+builder.Services.AddScoped<IImageService, ImageService>();
 builder.Services.AddScoped<IProductVariantRepo, ProductVariantRepo>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IRbacService, RbacService>();
@@ -195,10 +199,18 @@ app.UseSession();           // 4. Session
 app.UseAuthentication();    // 2. Authentication
 app.UseAuthorization();     // 3. Authorization  
 
+// ✅ Static files PHẢI đặt TRƯỚC MapControllers
+app.UseStaticFiles(); // Serve từ wwwroot
+
+// ✅ Thêm static files cho thư mục product
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(
+        Path.Combine(builder.Environment.ContentRootPath, "wwwroot", "product")),
+    RequestPath = "/product" // URL path để access images: /product/product1/1.png
+});
+
 app.UseRateLimiter();
 app.MapControllers();       // 5. Map controllers
-// Enable static files
-app.UseStaticFiles();
-// app.MapIdentityApi<IdentityUser>(); // 6. Map Identity API
 
 app.Run();

@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using TheLightStore.Interfaces.Products;
+using TheLightStore.Interfaces.Images;
 
 namespace TheLightStore.Services.Products;
 
@@ -7,12 +8,14 @@ public class ProductService : IProductService
 {
     private readonly DBContext _context;
     private readonly IProductRepo _productRepo;
+    private readonly IImageService _imageService;
     private readonly ILogger<ProductService> _logger;
 
-    public ProductService(DBContext context, IProductRepo productRepo, ILogger<ProductService> logger)
+    public ProductService(DBContext context, IProductRepo productRepo, IImageService imageService, ILogger<ProductService> logger)
     {
         _context = context;
         _productRepo = productRepo;
+        _imageService = imageService;
         _logger = logger;
     }
 
@@ -560,8 +563,17 @@ public class ProductService : IProductService
             IsFeatured = product.IsFeatured,
             HasVariants = product.HasVariants,
             IsNewProduct = IsNewProduct(product.CreatedAt),
-            ThumbnailUrl = null, // TODO: Implement image handling
-            Images = null, // TODO: Implement image handling
+            // ✅ Map thumbnail và images với full URL
+            ThumbnailUrl = product.ProductImages?.FirstOrDefault(i => i.IsPrimary == true)?.ImageUrl != null 
+                ? _imageService.GetFullImageUrl(product.ProductImages.FirstOrDefault(i => i.IsPrimary == true)!.ImageUrl)
+                : null,
+            Images = product.ProductImages?.Select(img => new ProductImageDto(
+                img.Id,
+                _imageService.GetFullImageUrl(img.ImageUrl), // ✅ Convert to full URL
+                img.AltText ?? "",
+                img.IsPrimary ?? false,
+                img.SortOrder ?? 0
+            )).OrderBy(img => img.SortOrder).ToList(),
             Rating = 0, // TODO: Calculate from reviews
             ReviewCount = 0, // TODO: Count from reviews
             ViewCount = 0, // TODO: Implement view tracking
@@ -599,7 +611,10 @@ public class ProductService : IProductService
             FinalPrice = CalculateFinalPrice(product.BasePrice, product.SalePrice),
             IsOnSale = IsProductOnSale(product.BasePrice, product.SalePrice),
             DiscountPercentage = CalculateDiscountPercentage(product.BasePrice, product.SalePrice),
-            ThumbnailUrl = null, // TODO: Implement image handling
+            // ✅ Map thumbnail từ primary image với full URL
+            ThumbnailUrl = product.ProductImages?.FirstOrDefault(i => i.IsPrimary == true)?.ImageUrl != null
+                ? _imageService.GetFullImageUrl(product.ProductImages.FirstOrDefault(i => i.IsPrimary == true)!.ImageUrl)
+                : null,
             IsInStock = product.StockQuantity > 0,
             StockQuantity = product.StockQuantity,
             IsActive = product.IsActive,

@@ -93,14 +93,20 @@ public class ProductController : ControllerBase
         return BadRequest(result.Errors);
     }
 
-    [HttpPost("upload-image")]
-    public async Task<IActionResult> UploadImageAsync(IFormFile file)
+    [HttpPost("upload-image/{productId}")]
+    public async Task<IActionResult> UploadImageAsync(int productId, IFormFile file)
     {
         try
         {
             if (file == null || file.Length == 0)
             {
                 return BadRequest(ServiceResult<string>.FailureResult("No file uploaded", new List<string> { "File is required" }));
+            }
+
+            // Validate productId
+            if (productId <= 0)
+            {
+                return BadRequest(ServiceResult<string>.FailureResult("Invalid product ID", new List<string> { "Product ID is required" }));
             }
 
             // Validate file type
@@ -116,26 +122,41 @@ public class ProductController : ControllerBase
                 return BadRequest(ServiceResult<string>.FailureResult("File size cannot exceed 5MB", new List<string> { "File size is too large" }));
             }
 
-            // Generate unique filename
-            var fileExtension = Path.GetExtension(file.FileName).ToLower();
-            var fileName = $"{Guid.NewGuid()}{fileExtension}";
-            
-            // Create directory structure: uploads/products/YYYY/MM/
-            var currentDate = DateTime.Now;
-            var relativePath = Path.Combine("uploads", "products", 
-                                        currentDate.Year.ToString(), 
-                                        currentDate.Month.ToString("D2"));
-            
+            // ✅ Tạo thư mục theo cấu trúc: products/product{id}/
+            var productFolder = $"product{productId}";
+            var relativePath = Path.Combine("products", productFolder);
             var uploadsPath = Path.Combine(_webHostEnvironment.WebRootPath, relativePath);
             
-            // Ensure directory exists
+            // Tạo thư mục nếu chưa có
             if (!Directory.Exists(uploadsPath))
             {
                 Directory.CreateDirectory(uploadsPath);
             }
 
+            // ✅ Tìm số thứ tự tiếp theo cho ảnh
+            var existingFiles = Directory.GetFiles(uploadsPath, "*.*")
+                .Where(f => new[] { ".png", ".jpg", ".jpeg", ".gif", ".webp" }
+                    .Contains(Path.GetExtension(f).ToLowerInvariant()))
+                .ToList();
+
+            int nextNumber = 1;
+            if (existingFiles.Any())
+            {
+                var numbers = existingFiles
+                    .Select(f => Path.GetFileNameWithoutExtension(f))
+                    .Where(name => int.TryParse(name, out _))
+                    .Select(int.Parse);
+                
+                if (numbers.Any())
+                {
+                    nextNumber = numbers.Max() + 1;
+                }
+            }
+
+            // ✅ Tạo tên file theo số thứ tự
+            var fileExtension = Path.GetExtension(file.FileName).ToLowerInvariant();
+            var fileName = $"{nextNumber}{fileExtension}";
             var filePath = Path.Combine(uploadsPath, fileName);
-            var relativeFilePath = Path.Combine(relativePath, fileName).Replace("\\", "/");
 
             // Save file
             using (var stream = new FileStream(filePath, FileMode.Create))
@@ -143,8 +164,8 @@ public class ProductController : ControllerBase
                 await file.CopyToAsync(stream);
             }
 
-            // Return the relative URL
-            var imageUrl = $"/{relativeFilePath}";
+            // ✅ Return URL theo cấu trúc thực tế
+            var imageUrl = $"/{relativePath.Replace("\\", "/")}/{fileName}";
             
             return Ok(ServiceResult<string>.SuccessResult(imageUrl));
         }
