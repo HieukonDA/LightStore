@@ -385,9 +385,141 @@ public class ProductService : IProductService
         }
     }
 
+    public async Task<ServiceResult<PagedResult<ProductListDto>>> GetFeaturedAsync(PagedRequest pagedRequest)
+    {
+        try
+        {
+            _logger.LogInformation("Fetching featured products with page {Page}, size {Size}", 
+                pagedRequest.Page, pagedRequest.Size);
 
+            // Validate paged request
+            var validationResult = ValidatePagedRequest<PagedResult<ProductListDto>>(pagedRequest);
+            if (!validationResult.Success)
+            {
+                return validationResult;
+            }
 
+            var result = await _productRepo.GetFeaturedAsync(pagedRequest);
+            if (result == null)
+            {
+                _logger.LogWarning("Repository returned null result for GetFeaturedAsync");
+                return ServiceResult<PagedResult<ProductListDto>>.FailureResult("No featured products found", new List<string>());
+            }
 
+            var productListDtos = result.Items.Select(product => MapToListDto(product)).ToList();
+
+            var pagedResult = new PagedResult<ProductListDto>
+            {
+                Items = productListDtos,
+                TotalCount = result.TotalCount,
+                Page = result.Page,
+                PageSize = result.PageSize
+            };
+
+            _logger.LogInformation("Successfully retrieved {Count} featured products", productListDtos.Count);
+            return ServiceResult<PagedResult<ProductListDto>>.SuccessResult(pagedResult);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error occurred while fetching featured products");
+            return ServiceResult<PagedResult<ProductListDto>>.FailureResult("An error occurred while processing your request", new List<string> { ex.Message });
+        }
+    }
+
+    public async Task<ServiceResult<PagedResult<ProductListDto>>> GetNewProductsAsync(PagedRequest pagedRequest)
+    {
+        try
+        {
+            _logger.LogInformation("Fetching new products with page {Page}, size {Size}", 
+                pagedRequest.Page, pagedRequest.Size);
+
+            // Validate paged request
+            var validationResult = ValidatePagedRequest<PagedResult<ProductListDto>>(pagedRequest);
+            if (!validationResult.Success)
+            {
+                return validationResult;
+            }
+
+            var result = await _productRepo.GetNewProductsAsync(pagedRequest);
+            if (result == null)
+            {
+                _logger.LogWarning("Repository returned null result for GetNewProductsAsync");
+                return ServiceResult<PagedResult<ProductListDto>>.FailureResult("No new products found", new List<string>());
+            }
+
+            var productListDtos = result.Items.Select(product => MapToListDto(product)).ToList();
+
+            var pagedResult = new PagedResult<ProductListDto>
+            {
+                Items = productListDtos,
+                TotalCount = result.TotalCount,
+                Page = result.Page,
+                PageSize = result.PageSize
+            };
+
+            _logger.LogInformation("Successfully retrieved {Count} new products", productListDtos.Count);
+            return ServiceResult<PagedResult<ProductListDto>>.SuccessResult(pagedResult);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error occurred while fetching new products");
+            return ServiceResult<PagedResult<ProductListDto>>.FailureResult("An error occurred while processing your request", new List<string> { ex.Message });
+        }
+    }
+
+    public async Task<ServiceResult<PagedResult<ProductListDto>>> GetRelatedAsync(int productId, PagedRequest pagedRequest)
+    {
+        try
+        {
+            _logger.LogInformation("Fetching related products for product {ProductId} with page {Page}, size {Size}", 
+                productId, pagedRequest.Page, pagedRequest.Size);
+
+            // Validate product ID
+            if (productId <= 0)
+            {
+                return ServiceResult<PagedResult<ProductListDto>>.FailureResult("Product ID must be greater than 0", new List<string> { "Invalid product ID" });
+            }
+
+            // Validate paged request
+            var validationResult = ValidatePagedRequest<PagedResult<ProductListDto>>(pagedRequest);
+            if (!validationResult.Success)
+            {
+                return validationResult;
+            }
+
+            // Check if product exists
+            var productExists = await _productRepo.ExistsAsync(productId);
+            if (!productExists)
+            {
+                return ServiceResult<PagedResult<ProductListDto>>.FailureResult("Product not found", new List<string> { "Product does not exist" });
+            }
+
+            var result = await _productRepo.GetRelatedAsync(productId, pagedRequest);
+            if (result == null)
+            {
+                _logger.LogWarning("Repository returned null result for GetRelatedAsync with product ID {ProductId}", productId);
+                return ServiceResult<PagedResult<ProductListDto>>.FailureResult("No related products found", new List<string>());
+            }
+
+            var productListDtos = result.Items.Select(product => MapToListDto(product)).ToList();
+
+            var pagedResult = new PagedResult<ProductListDto>
+            {
+                Items = productListDtos,
+                TotalCount = result.TotalCount,
+                Page = result.Page,
+                PageSize = result.PageSize
+            };
+
+            _logger.LogInformation("Successfully retrieved {Count} related products for product {ProductId}", productListDtos.Count, productId);
+            return ServiceResult<PagedResult<ProductListDto>>.SuccessResult(pagedResult);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error occurred while fetching related products for product {ProductId}", productId);
+            return ServiceResult<PagedResult<ProductListDto>>.FailureResult("An error occurred while processing your request", new List<string> { ex.Message });
+        }
+    }
 
     #endregion
 

@@ -196,6 +196,34 @@ public class OrderService : IOrderService
         }
     }
 
+    public async Task<ServiceResult<Order?>> GetOrderByOrderNumberAsync(string orderNumber, CancellationToken ct = default)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(orderNumber))
+            {
+                Console.WriteLine("[ERROR] Invalid orderNumber");
+                return ServiceResult<Order?>.FailureResult("Invalid orderNumber", new List<string> { "orderNumber must be provided" });
+            }
+
+            var order = await _orderRepo.GetByOrderNumberAsync(orderNumber, ct);
+            if (order == null)
+            {
+                Console.WriteLine("[ERROR] Order not found");
+                return ServiceResult<Order?>.FailureResult("Order not found", new List<string> { $"Order {orderNumber} does not exist" });
+            }
+
+            Console.WriteLine("[SUCCESS] Order retrieved successfully");
+            return ServiceResult<Order?>.SuccessResult(order, "Order retrieved successfully");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[EXCEPTION] {ex.Message}");
+            _logger.LogError(ex, "Error getting order {OrderNumber}", orderNumber);
+            return ServiceResult<Order?>.FailureResult("Failed to get order", new List<string> { ex.Message });
+        }
+    }
+
     public async Task<ServiceResult<IEnumerable<Order>>> GetOrdersByUserAsync(int userId, CancellationToken ct = default)
     {
         try
@@ -450,6 +478,7 @@ public class OrderService : IOrderService
 
     public async Task<ServiceResult<bool>> CancelOrderAsync(int orderId, string? reason = null, CancellationToken ct = default)
     {
+        // using var transaction = await _orderRepo.BeginTransactionAsync(ct);
         try
         {
             if (orderId <= 0)
@@ -466,11 +495,12 @@ public class OrderService : IOrderService
             }
 
             var oldStatus = order.OrderStatus;
-            order.OrderStatus = OrderStatus.Cancelled;
-            await _orderRepo.UpdateAsync(order, ct);
 
-            // Release stock if reserved
-            await _inventoryService.ReleaseReservationsAsync(order.Id.ToString());
+            order.OrderStatus = OrderStatus.Cancelled;
+            order.CancelledAt = DateTime.UtcNow;
+            await _orderRepo.UpdateAsync(order, ct);
+            await _orderRepo.SaveChangesAsync(ct);
+
 
             await _statusHistoryRepo.AddAsync(new OrderStatusHistory
             {
@@ -483,9 +513,12 @@ public class OrderService : IOrderService
 
             await _orderRepo.SaveChangesAsync(ct);
 
+            // Release stock if reserved
+            await _inventoryService.ReleaseReservationsAsync(order.Id.ToString());
+
             // Gửi thông báo cho admin
             await _notificationService.NotifyOrderUpdateAsync(order, oldStatus.ToString(), order.OrderStatus.ToString(), ct);
-            
+
             // Gửi thông báo cho customer
             if (order.UserId.HasValue)
             {

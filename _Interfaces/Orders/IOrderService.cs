@@ -10,6 +10,7 @@ public interface IOrderService
     Task<ServiceResult<OrderDto>> CreateOrderAsync(OrderCreateDto dto, CancellationToken ct = default);
 
     Task<ServiceResult<Order?>> GetOrderByIdAsync(int orderId, CancellationToken ct = default);
+    Task<ServiceResult<Order?>> GetOrderByOrderNumberAsync(string orderNumber, CancellationToken ct = default);
     Task<ServiceResult<IEnumerable<Order>>> GetOrdersByUserAsync(int userId, CancellationToken ct = default);
 
     // State transitions

@@ -14,12 +14,12 @@ public interface IProductService
     Task<ServiceResult<ProductDto>> UpdateAsync(int id, UpdateProductDto dto);
     Task<ServiceResult<bool>> DeleteAsync(int id);
 
-    // // Product Collections
-    // Task<ServiceResult<List<ProductListDto>>> GetFeaturedAsync(int count = 10);
-    // Task<ServiceResult<List<ProductListDto>>> GetNewProductsAsync(int count = 10);
+    // Product Collections
+    Task<ServiceResult<PagedResult<ProductListDto>>> GetFeaturedAsync(PagedRequest pagedRequest);
+    Task<ServiceResult<PagedResult<ProductListDto>>> GetNewProductsAsync(PagedRequest pagedRequest);
     Task<ServiceResult<PagedResult<ProductListDto>>> GetByCategoryAsync(int categoryId, PagedRequest pagedRequest);
     Task<ServiceResult<PagedResult<ProductListDto>>> GetByCategorySlugAsync(string slug, PagedRequest pagedRequest);
-    // Task<ServiceResult<List<ProductListDto>>> GetRelatedAsync(int productId, int count = 5);
+    Task<ServiceResult<PagedResult<ProductListDto>>> GetRelatedAsync(int productId, PagedRequest pagedRequest);
 
     // // Stock & Inventory
     // Task<ServiceResult<bool>> UpdateStockAsync(int productId, int quantity);

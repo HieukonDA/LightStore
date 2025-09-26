@@ -209,7 +209,7 @@ public class AuthService : IAuthService
             );
 
             // Gán role mặc định
-            await _rbacService.AssignRoleToUserAsync(user.Id, 2); // roleId=2 là Customer
+            await _rbacService.AssignRoleToUserAsync(user.Id, 4); // roleId=2 là Customer
 
             var roles = await _rbacService.GetUserRolesAsync(user.Id);
 

@@ -6,6 +6,7 @@ namespace TheLightStore.Controllers.Orders;
 
 [ApiController]
 [Route("api/v1/[controller]")]
+[Authorize]
 public class OrderController : ControllerBase
 {
     private readonly IOrderService _orderService;
@@ -64,6 +65,17 @@ public class OrderController : ControllerBase
     public async Task<IActionResult> GetOrderById(int orderId, CancellationToken ct = default)
     {
         var result = await _orderService.GetOrderByIdAsync(orderId, ct);
+
+        if (!result.Success)
+            return NotFound(new { message = result.Message, errors = result.Errors });
+
+        return Ok(new { success = true, data = result.Data, message = result.Message });
+    }
+
+    [HttpGet("number/{orderNumber}")]
+    public async Task<IActionResult> GetOrderByOrderNumber(string orderNumber, CancellationToken ct = default)
+    {
+        var result = await _orderService.GetOrderByOrderNumberAsync(orderNumber, ct);
 
         if (!result.Success)
             return NotFound(new { message = result.Message, errors = result.Errors });

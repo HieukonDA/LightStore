@@ -4,6 +4,7 @@ public interface IOrderRepo
 {
     Task<PagedResult<Order>> GetAllAsync(PagedRequest request, CancellationToken ct = default);
     Task<Order?> GetByIdAsync(int id, CancellationToken ct = default);
+    Task<Order?> GetByOrderNumberAsync(string orderNumber, CancellationToken ct = default);
     Task<IEnumerable<Order>> GetByUserIdAsync(int userId, CancellationToken ct = default);
     Task AddAsync(Order order, CancellationToken ct = default);
     Task UpdateAsync(Order order, CancellationToken ct = default);

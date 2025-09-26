@@ -71,6 +71,14 @@ public class OrderRepo : IOrderRepo
             .FirstOrDefaultAsync(o => o.Id == id, ct);
     }
 
+    public async Task<Order?> GetByOrderNumberAsync(string orderNumber, CancellationToken ct = default)
+    {
+        return await _context.Orders
+            .Include(o => o.OrderItems)
+            .Include(o => o.OrderPayments)
+            .FirstOrDefaultAsync(o => o.OrderNumber == orderNumber, ct);
+    }
+
     public async Task<IEnumerable<Order>> GetByUserIdAsync(int userId, CancellationToken ct = default)
     {
         return await _context.Orders

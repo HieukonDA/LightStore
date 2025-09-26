@@ -280,6 +280,203 @@ public class ProductRepo : IProductRepo
         return result;
     }
 
+    public async Task<PagedResult<Product>> GetFeaturedAsync(PagedRequest pagedRequest)
+    {
+        var query = _context.Products
+            .Where(p => p.IsActive && p.IsFeatured)
+            .Include(p => p.Category)
+            .Include(p => p.Brand)
+            .Include(p => p.ProductImages.Where(img => img.IsPrimary == true))
+            .AsQueryable();
+
+        // Apply search if provided
+        if (!string.IsNullOrEmpty(pagedRequest.Search))
+        {
+            query = query.Where(p => p.Name.Contains(pagedRequest.Search) ||
+                                   p.ShortDescription.Contains(pagedRequest.Search));
+        }
+
+        // Apply sorting
+        if (!string.IsNullOrEmpty(pagedRequest.Sort))
+        {
+            switch (pagedRequest.Sort.ToLower())
+            {
+                case "name":
+                    query = query.OrderBy(p => p.Name);
+                    break;
+                case "price":
+                    query = query.OrderBy(p => p.SalePrice);
+                    break;
+                case "createdat":
+                    query = query.OrderByDescending(p => p.CreatedAt);
+                    break;
+                default:
+                    query = query.OrderByDescending(p => p.CreatedAt);
+                    break;
+            }
+        }
+        else
+        {
+            query = query.OrderByDescending(p => p.CreatedAt);
+        }
+
+        var totalCount = await query.CountAsync();
+        var totalPages = (int)Math.Ceiling((double)totalCount / pagedRequest.Size);
+
+        var items = await query
+            .Skip((pagedRequest.Page - 1) * pagedRequest.Size)
+            .Take(pagedRequest.Size)
+            .ToListAsync();
+
+        return new PagedResult<Product>
+        {
+            Items = items,
+            TotalCount = totalCount,
+            Page = pagedRequest.Page,
+            PageSize = pagedRequest.Size
+        };
+    }
+
+    public async Task<PagedResult<Product>> GetNewProductsAsync(PagedRequest pagedRequest)
+    {
+        // Sản phẩm mới là những sản phẩm được tạo trong 30 ngày gần đây
+        var thirtyDaysAgo = DateTime.UtcNow.AddDays(-30);
+
+        var query = _context.Products
+            .Where(p => p.IsActive && p.CreatedAt >= thirtyDaysAgo)
+            .Include(p => p.Category)
+            .Include(p => p.Brand)
+            .Include(p => p.ProductImages.Where(img => img.IsPrimary == true))
+            .AsQueryable();
+
+        // Apply search if provided
+        if (!string.IsNullOrEmpty(pagedRequest.Search))
+        {
+            query = query.Where(p => p.Name.Contains(pagedRequest.Search) ||
+                                   p.ShortDescription.Contains(pagedRequest.Search));
+        }
+
+        // Apply sorting
+        if (!string.IsNullOrEmpty(pagedRequest.Sort))
+        {
+            switch (pagedRequest.Sort.ToLower())
+            {
+                case "name":
+                    query = query.OrderBy(p => p.Name);
+                    break;
+                case "price":
+                    query = query.OrderBy(p => p.SalePrice);
+                    break;
+                case "createdat":
+                    query = query.OrderByDescending(p => p.CreatedAt);
+                    break;
+                default:
+                    query = query.OrderByDescending(p => p.CreatedAt);
+                    break;
+            }
+        }
+        else
+        {
+            query = query.OrderByDescending(p => p.CreatedAt);
+        }
+
+        var totalCount = await query.CountAsync();
+        var totalPages = (int)Math.Ceiling((double)totalCount / pagedRequest.Size);
+
+        var items = await query
+            .Skip((pagedRequest.Page - 1) * pagedRequest.Size)
+            .Take(pagedRequest.Size)
+            .ToListAsync();
+
+        return new PagedResult<Product>
+        {
+            Items = items,
+            TotalCount = totalCount,
+            Page = pagedRequest.Page,
+            PageSize = pagedRequest.Size
+        };
+    }
+
+    public async Task<PagedResult<Product>> GetRelatedAsync(int productId, PagedRequest pagedRequest)
+    {
+        // Lấy thông tin sản phẩm gốc để tìm categoryId
+        var sourceProduct = await _context.Products
+            .Where(p => p.Id == productId && p.IsActive)
+            .Select(p => new { p.CategoryId })
+            .FirstOrDefaultAsync();
+
+        if (sourceProduct == null)
+        {
+            return new PagedResult<Product>
+            {
+                Items = new List<Product>(),
+                TotalCount = 0,
+                Page = pagedRequest.Page,
+                PageSize = pagedRequest.Size
+            };
+        }
+
+        var query = _context.Products
+            .Where(p => p.IsActive && 
+                       p.CategoryId == sourceProduct.CategoryId && 
+                       p.Id != productId) // Loại bỏ chính sản phẩm đó
+            .Include(p => p.Category)
+            .Include(p => p.Brand)
+            .Include(p => p.ProductImages.Where(img => img.IsPrimary == true))
+            .AsQueryable();
+
+        // Apply search if provided
+        if (!string.IsNullOrEmpty(pagedRequest.Search))
+        {
+            query = query.Where(p => p.Name.Contains(pagedRequest.Search) ||
+                                   p.ShortDescription.Contains(pagedRequest.Search));
+        }
+
+        // Apply sorting
+        if (!string.IsNullOrEmpty(pagedRequest.Sort))
+        {
+            switch (pagedRequest.Sort.ToLower())
+            {
+                case "name":
+                    query = query.OrderBy(p => p.Name);
+                    break;
+                case "price":
+                    query = query.OrderBy(p => p.SalePrice);
+                    break;
+                case "createdat":
+                    query = query.OrderByDescending(p => p.CreatedAt);
+                    break;
+                case "featured":
+                    query = query.OrderByDescending(p => p.IsFeatured).ThenByDescending(p => p.CreatedAt);
+                    break;
+                default:
+                    // Ưu tiên sản phẩm nổi bật trước, sau đó theo ngày tạo
+                    query = query.OrderByDescending(p => p.IsFeatured).ThenByDescending(p => p.CreatedAt);
+                    break;
+            }
+        }
+        else
+        {
+            query = query.OrderByDescending(p => p.IsFeatured).ThenByDescending(p => p.CreatedAt);
+        }
+
+        var totalCount = await query.CountAsync();
+        var totalPages = (int)Math.Ceiling((double)totalCount / pagedRequest.Size);
+
+        var items = await query
+            .Skip((pagedRequest.Page - 1) * pagedRequest.Size)
+            .Take(pagedRequest.Size)
+            .ToListAsync();
+
+        return new PagedResult<Product>
+        {
+            Items = items,
+            TotalCount = totalCount,
+            Page = pagedRequest.Page,
+            PageSize = pagedRequest.Size
+        };
+    }
+
     #endregion
 
     #region search method

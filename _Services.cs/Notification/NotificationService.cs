@@ -375,7 +375,7 @@ TheLightStore
             Title = "Đơn hàng mới",
             Content = $"Khách hàng {order.CustomerName} vừa đặt đơn hàng #{order.OrderNumber} với giá trị {order.TotalAmount:C}",
             ReferenceId = order.Id,
-            RedirectUrl = $"/admin/orders/{order.Id}",
+            RedirectUrl = $"/admin/orders/{order.OrderNumber}",
             Priority = "normal"
         };
 
@@ -395,7 +395,7 @@ TheLightStore
             Title = "Cập nhật đơn hàng",
             Content = $"Đơn hàng #{order.OrderNumber} đã chuyển từ '{oldStatus}' sang '{newStatus}'",
             ReferenceId = order.Id,
-            RedirectUrl = $"/admin/orders/{order.Id}",
+            RedirectUrl = $"/admin/orders",
             Priority = newStatus.ToLower() == "cancelled" ? "high" : "normal"
         };
 
@@ -411,7 +411,7 @@ TheLightStore
             Title = "Thanh toán thành công",
             Content = $"Đơn hàng #{order.OrderNumber} đã được thanh toán thành công số tiền {order.TotalAmount:C}",
             ReferenceId = order.Id,
-            RedirectUrl = $"/admin/orders/{order.Id}",
+            RedirectUrl = $"/admin/orders",
             Priority = "high"
         };
 
@@ -427,7 +427,7 @@ TheLightStore
             Title = "Cảnh báo hết hàng",
             Content = $"Sản phẩm '{productName}' chỉ còn {currentStock} sản phẩm trong kho",
             ReferenceId = productId,
-            RedirectUrl = $"/admin/products/{productId}",
+            RedirectUrl = $"/admin/products",
             Priority = currentStock == 0 ? "urgent" : "high"
         };
 
@@ -451,7 +451,7 @@ TheLightStore
                 Title = GetOrderStatusTitle(newStatus),
                 Content = GetOrderStatusContent(order, newStatus),
                 ReferenceId = order.Id,
-                RedirectUrl = $"/orders/{order.Id}",
+                RedirectUrl = $"/orders/{order.OrderNumber}",
                 Priority = GetOrderStatusPriority(newStatus)
             };
             
@@ -464,7 +464,7 @@ TheLightStore
                 Title = GetOrderStatusTitle(newStatus),
                 Content = GetOrderStatusContent(order, newStatus),
                 ReferenceId = order.Id,
-                RedirectUrl = $"/orders/{order.Id}",
+                RedirectUrl = $"/orders/{order.OrderNumber}",
                 Priority = GetOrderStatusPriority(newStatus),
                 Data = new { 
                     OrderId = order.Id,
@@ -507,7 +507,7 @@ TheLightStore
                 Title = title,
                 Content = content,
                 ReferenceId = order.Id,
-                RedirectUrl = $"/orders/{order.Id}",
+                RedirectUrl = $"/orders/{order.OrderNumber}",
                 Priority = success ? "normal" : "high"
             };
             
@@ -520,7 +520,7 @@ TheLightStore
                 Title = title,
                 Content = content,
                 ReferenceId = order.Id,
-                RedirectUrl = $"/orders/{order.Id}",
+                RedirectUrl = $"/orders/{order.OrderNumber}",
                 Priority = success ? "normal" : "high",
                 Data = new { 
                     OrderId = order.Id,
