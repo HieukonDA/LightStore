@@ -117,8 +117,14 @@ public class PaymentService : IPaymentService
                 await _orderRepo.UpdateAsync(order);
                 await _orderRepo.SaveChangesAsync();
 
-                // Gửi thông báo thanh toán thành công
+                // Gửi thông báo thanh toán thành công cho admin
                 await _notificationService.NotifyPaymentSuccessAsync(order);
+                
+                // Gửi thông báo thanh toán thành công cho customer
+                if (order.UserId.HasValue)
+                {
+                    await _notificationService.NotifyCustomerPaymentAsync(order.UserId.Value, order, true, "MoMo");
+                }
             }
         }
         else
@@ -136,8 +142,14 @@ public class PaymentService : IPaymentService
                 await _orderRepo.UpdateAsync(order);
                 await _orderRepo.SaveChangesAsync();
                 
-                // Thông báo thanh toán thất bại
+                // Thông báo thanh toán thất bại cho admin
                 await _notificationService.NotifyOrderUpdateAsync(order, oldStatus, "Cancelled");
+                
+                // Gửi thông báo thanh toán thất bại cho customer
+                if (order.UserId.HasValue)
+                {
+                    await _notificationService.NotifyCustomerPaymentAsync(order.UserId.Value, order, false, "MoMo");
+                }
             }
         }
 

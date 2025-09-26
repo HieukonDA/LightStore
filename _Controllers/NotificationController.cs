@@ -8,7 +8,7 @@ namespace TheLightStore.Controllers.Notifications;
 
 [ApiController]
 [Route("api/v1/[controller]")]
-[Authorize] // Yêu cầu authentication
+[Authorize(Roles = "Admin")]
 public class NotificationController : ControllerBase
 {
     private readonly INotificationService _notificationService;
@@ -32,7 +32,8 @@ public class NotificationController : ControllerBase
             return Unauthorized();
         }
 
-        var result = await _notificationService.GetUserNotificationsAsync(userId.Value, request);
+        // ✅ Admin/Staff chỉ nhận thông báo admin
+        var result = await _notificationService.GetUserNotificationsAsync(userId.Value, request, "admin");
         return result.Success ? Ok(result) : BadRequest(result);
     }
 
@@ -48,7 +49,8 @@ public class NotificationController : ControllerBase
             return Unauthorized();
         }
 
-        var result = await _notificationService.GetUserNotificationStatsAsync(userId.Value);
+        // ✅ Admin/Staff chỉ nhận thống kê thông báo admin
+        var result = await _notificationService.GetUserNotificationStatsAsync(userId.Value, "admin");
         return result.Success ? Ok(result) : BadRequest(result);
     }
 

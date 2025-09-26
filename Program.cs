@@ -37,7 +37,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
         var jwtKey = builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("JWT key not found");
-        
+
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
@@ -49,6 +49,22 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidIssuer = builder.Configuration["Jwt:Issuer"],
             ValidAudience = builder.Configuration["Jwt:Audience"],
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
+        };
+        
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                var accessToken = context.Request.Query["access_token"];
+                var path = context.HttpContext.Request.Path;
+                
+                if (!string.IsNullOrEmpty(accessToken) && 
+                    path.StartsWithSegments("/notificationHub"))
+                {
+                    context.Token = accessToken;
+                }
+                return Task.CompletedTask;
+            }
         };
     });
 
@@ -66,7 +82,7 @@ builder.Services.AddRateLimiter(options =>
             }));
 });
 
-// Thêm CORS
+// Thêm CORS (Quan trọng cho SignalR)
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend",
@@ -76,11 +92,12 @@ builder.Services.AddCors(options =>
                 "http://localhost:5173",      // Vite frontend
                 "https://localhost:5264",    // Swagger UI (https)
                 "http://localhost:5264",      // Swagger UI (http)
-                "https://thelightstore.io.vn"
+                "https://thelightstore.io.vn", // Production domain
+                "http://thelightstore.io.vn"   // HTTP fallback
             ) // domain frontend
                   .AllowAnyHeader()
                   .AllowAnyMethod()
-                  .AllowCredentials(); 
+                  .AllowCredentials();       // ✅ BẮT BUỘC cho SignalR
         });
 });
 
@@ -135,8 +152,18 @@ builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 
-// SignalR
-builder.Services.AddSignalR();
+// SignalR với cấu hình đầy đủ
+builder.Services.AddSignalR(options =>
+{
+    if (builder.Environment.IsDevelopment())
+    {
+        options.EnableDetailedErrors = true;
+    }
+    
+    // Timeout configuration
+    options.ClientTimeoutInterval = TimeSpan.FromSeconds(60);
+    options.KeepAliveInterval = TimeSpan.FromSeconds(30);
+});
 
 builder.Services.AddScoped<ISearchService, SearchService>();
 

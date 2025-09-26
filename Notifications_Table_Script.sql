@@ -61,7 +61,7 @@ CREATE TABLE [dbo].[Notifications] (
         REFERENCES [dbo].[Users]([Id]) ON DELETE SET NULL,
         
     -- Ràng buộc kiểm tra Type
-    CONSTRAINT [CK_Notifications_Type] CHECK ([Type] IN ('order', 'payment', 'inventory', 'system', 'user')),
+    CONSTRAINT [CK_Notifications_Type] CHECK ([Type] IN ('order', 'payment', 'inventory', 'system', 'user', 'promotion')),
     
     -- Ràng buộc kiểm tra Priority
     CONSTRAINT [CK_Notifications_Priority] CHECK ([Priority] IN ('low', 'normal', 'high', 'urgent'))
@@ -132,7 +132,16 @@ VALUES
     (NULL, 'payment', 'Thanh toán thành công #ORD001', 'Đơn hàng #ORD001 đã được thanh toán thành công số tiền 1.500.000đ', 'high', '{"orderId": 1, "paymentMethod": "momo", "amount": 1500000}'),
     
     -- Thông báo tồn kho mẫu
-    (NULL, 'inventory', 'Cảnh báo hết hàng', 'Sản phẩm "Đèn LED 12W" chỉ còn 5 sản phẩm trong kho', 'urgent', '{"productId": 1, "productName": "Đèn LED 12W", "stock": 5}');
+    (NULL, 'inventory', 'Cảnh báo hết hàng', 'Sản phẩm "Đèn LED 12W" chỉ còn 5 sản phẩm trong kho', 'urgent', '{"productId": 1, "productName": "Đèn LED 12W", "stock": 5}'),
+    
+    -- Thông báo customer mẫu (giả sử UserId = 2 là customer)
+    (2, 'order', 'Đơn hàng đã được xác nhận', 'Đơn hàng #ORD001 của bạn đã được xác nhận và đang được chuẩn bị.', 'normal', '{"orderId": 1, "orderNumber": "ORD001"}'),
+    
+    -- Thông báo thanh toán customer mẫu
+    (2, 'payment', 'Thanh toán thành công', 'Thanh toán cho đơn hàng #ORD001 đã thành công. Số tiền: 1.500.000đ', 'normal', '{"orderId": 1, "orderNumber": "ORD001", "amount": 1500000}'),
+    
+    -- Thông báo khuyến mãi broadcast
+    (NULL, 'promotion', 'Khuyến mãi Black Friday', 'Giảm giá lên đến 50% cho tất cả sản phẩm đèn LED. Thời gian có hạn!', 'high', '{"discountPercent": 50, "validUntil": "2025-11-30"}');
 GO
 
 -- =============================================

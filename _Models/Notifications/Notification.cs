@@ -8,9 +8,14 @@ public class Notification
     public int Id { get; set; }
     
     /// <summary>
-    /// ID người nhận thông báo (Admin/Staff)
+    /// ID người nhận thông báo (Admin/Staff/Customer)
     /// </summary>
     public int? UserId { get; set; }
+    
+    /// <summary>
+    /// Vai trò người nhận: 'admin', 'customer', 'all'
+    /// </summary>
+    public string TargetRole { get; set; } = "admin";
     
     /// <summary>
     /// Loại thông báo: 'order', 'payment', 'system'

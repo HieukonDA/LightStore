@@ -3,6 +3,7 @@ namespace TheLightStore.Dtos.Notifications;
 public class NotificationDto
 {
     public int Id { get; set; }
+    public string TargetRole { get; set; } = "admin";
     public string Type { get; set; } = null!;
     public string Title { get; set; } = null!;
     public string Content { get; set; } = null!;
@@ -35,7 +36,13 @@ public class RealTimeNotificationDto
 /// </summary>
 public class CreateNotificationDto
 {
-    public int? UserId { get; set; } // null = broadcast to all admins
+    public int? UserId { get; set; } // null = broadcast to all users of TargetRole
+    
+    /// <summary>
+    /// Vai trò người nhận: "admin", "customer", "all"
+    /// </summary>
+    public string TargetRole { get; set; } = "admin"; // admin, customer, all
+    
     public string Type { get; set; } = null!;
     public string Title { get; set; } = null!;
     public string Content { get; set; } = null!;

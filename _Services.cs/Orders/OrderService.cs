@@ -147,6 +147,12 @@ public class OrderService : IOrderService
 
             // 4. Gửi thông báo đơn hàng mới
             await _notificationService.NotifyNewOrderAsync(order, ct);
+            
+            // 5. Gửi thông báo cho customer về đơn hàng mới
+            if (order.UserId.HasValue)
+            {
+                await _notificationService.NotifyCustomerOrderStatusAsync(order.UserId.Value, order, "pending", ct);
+            }
 
             Console.WriteLine("[SUCCESS] Order created successfully.");
             return ServiceResult<OrderDto>.SuccessResult(orderDto, "Order created successfully.");
@@ -251,8 +257,14 @@ public class OrderService : IOrderService
             }, ct);
             await _orderRepo.SaveChangesAsync(ct);
 
-            // Gửi thông báo cập nhật trạng thái
+            // Gửi thông báo cập nhật trạng thái cho admin
             await _notificationService.NotifyOrderUpdateAsync(order, oldStatus, order.OrderStatus.ToString(), ct);
+            
+            // Gửi thông báo cho customer
+            if (order.UserId.HasValue)
+            {
+                await _notificationService.NotifyCustomerOrderStatusAsync(order.UserId.Value, order, "confirmed", ct);
+            }
 
             Console.WriteLine("[SUCCESS] Order confirmed successfully");
             return ServiceResult<bool>.SuccessResult(true, "Order confirmed successfully");
@@ -308,8 +320,14 @@ public class OrderService : IOrderService
             
             await _orderRepo.SaveChangesAsync(ct);
 
-            // Gửi thông báo cập nhật trạng thái
+            // Gửi thông báo cập nhật trạng thái cho admin
             await _notificationService.NotifyOrderUpdateAsync(order, oldStatus.ToString(), order.OrderStatus.ToString(), ct);
+            
+            // Gửi thông báo cho customer
+            if (order.UserId.HasValue)
+            {
+                await _notificationService.NotifyCustomerOrderStatusAsync(order.UserId.Value, order, "processing", ct);
+            }
             
             // Log
             _logger.LogInformation("Order {OrderId} moved to processing status", orderId);
@@ -346,18 +364,28 @@ public class OrderService : IOrderService
                 return ServiceResult<bool>.FailureResult("Order not found", new List<string> { $"Order {orderId} does not exist" });
             }
 
+            var oldStatus = order.OrderStatus;
             order.OrderStatus = OrderStatus.Shipping;
             order.OrderNumber = trackingNumber ?? order.OrderNumber;
             await _orderRepo.UpdateAsync(order, ct);
             await _statusHistoryRepo.AddAsync(new OrderStatusHistory
             {
                 OrderId = order.Id,
-                OldStatus = null,
+                OldStatus = oldStatus,
                 NewStatus = order.OrderStatus,
                 Comment = $"Shipped with tracking {trackingNumber ?? "N/A"}",
                 ChangedAt = DateTime.UtcNow
             }, ct);
             await _orderRepo.SaveChangesAsync(ct);
+
+            // Gửi thông báo cho admin
+            await _notificationService.NotifyOrderUpdateAsync(order, oldStatus.ToString(), order.OrderStatus.ToString(), ct);
+            
+            // Gửi thông báo cho customer
+            if (order.UserId.HasValue)
+            {
+                await _notificationService.NotifyCustomerOrderStatusAsync(order.UserId.Value, order, "shipped", ct);
+            }
 
             Console.WriteLine("[SUCCESS] Order shipped successfully");
             return ServiceResult<bool>.SuccessResult(true, "Order shipped successfully");
@@ -387,17 +415,27 @@ public class OrderService : IOrderService
                 return ServiceResult<bool>.FailureResult("Order not found", new List<string> { $"Order {orderId} does not exist" });
             }
 
+            var oldStatus = order.OrderStatus;
             order.OrderStatus = OrderStatus.Delivered;
             await _orderRepo.UpdateAsync(order, ct);
             await _statusHistoryRepo.AddAsync(new OrderStatusHistory
             {
                 OrderId = order.Id,
-                OldStatus = null,
+                OldStatus = oldStatus,
                 NewStatus = order.OrderStatus,
                 Comment = "Order delivered",
                 ChangedAt = DateTime.UtcNow
             }, ct);
             await _orderRepo.SaveChangesAsync(ct);
+
+            // Gửi thông báo cho admin
+            await _notificationService.NotifyOrderUpdateAsync(order, oldStatus.ToString(), order.OrderStatus.ToString(), ct);
+            
+            // Gửi thông báo cho customer
+            if (order.UserId.HasValue)
+            {
+                await _notificationService.NotifyCustomerOrderStatusAsync(order.UserId.Value, order, "delivered", ct);
+            }
 
             Console.WriteLine("[SUCCESS] Order delivered successfully");
             return ServiceResult<bool>.SuccessResult(true, "Order delivered successfully");
@@ -427,6 +465,7 @@ public class OrderService : IOrderService
                 return ServiceResult<bool>.FailureResult("Order not found", new List<string> { $"Order {orderId} does not exist" });
             }
 
+            var oldStatus = order.OrderStatus;
             order.OrderStatus = OrderStatus.Cancelled;
             await _orderRepo.UpdateAsync(order, ct);
 
@@ -436,13 +475,22 @@ public class OrderService : IOrderService
             await _statusHistoryRepo.AddAsync(new OrderStatusHistory
             {
                 OrderId = order.Id,
-                OldStatus = null,
+                OldStatus = oldStatus,
                 NewStatus = order.OrderStatus,
                 Comment = reason ?? "Order cancelled",
                 ChangedAt = DateTime.UtcNow
             }, ct);
 
             await _orderRepo.SaveChangesAsync(ct);
+
+            // Gửi thông báo cho admin
+            await _notificationService.NotifyOrderUpdateAsync(order, oldStatus.ToString(), order.OrderStatus.ToString(), ct);
+            
+            // Gửi thông báo cho customer
+            if (order.UserId.HasValue)
+            {
+                await _notificationService.NotifyCustomerOrderStatusAsync(order.UserId.Value, order, "cancelled", ct);
+            }
 
             Console.WriteLine("[SUCCESS] Order cancelled successfully");
             return ServiceResult<bool>.SuccessResult(true, "Order cancelled successfully");

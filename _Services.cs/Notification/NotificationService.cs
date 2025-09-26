@@ -83,6 +83,7 @@ TheLightStore
             var notification = new Notification
             {
                 UserId = dto.UserId,
+                TargetRole = dto.TargetRole, // ✅ SỬA: Thêm TargetRole
                 Type = dto.Type,
                 Title = dto.Title,
                 Content = dto.Content,
@@ -108,13 +109,51 @@ TheLightStore
                 Data = new { NotificationId = notification.Id }
             };
 
+            // ✅ SỬA: Sử dụng TargetRole để phân biệt rõ ràng
             if (dto.UserId.HasValue)
             {
-                await SendToUserAsync(dto.UserId.Value, realtimeDto, ct);
+                if (dto.TargetRole == "customer")
+                {
+                    // Thông báo cho customer
+                    await SendToCustomerAsync(dto.UserId.Value, realtimeDto, ct);
+                }
+                else if (dto.TargetRole == "admin")
+                {
+                    // Thông báo cho admin/staff cụ thể
+                    await SendToUserAsync(dto.UserId.Value, realtimeDto, ct);
+                }
+                else
+                {
+                    // Default: tự động phán đoán dựa vào URL
+                    if (dto.RedirectUrl?.Contains("/admin/") == true)
+                    {
+                        await SendToUserAsync(dto.UserId.Value, realtimeDto, ct);
+                    }
+                    else
+                    {
+                        await SendToCustomerAsync(dto.UserId.Value, realtimeDto, ct);
+                    }
+                }
             }
             else
             {
-                await BroadcastToAdminsAsync(realtimeDto, ct);
+                switch (dto.TargetRole?.ToLower())
+                {
+                    case "customer":
+                        await BroadcastToCustomersAsync(realtimeDto, ct);
+                        break;
+                    case "admin":
+                        await BroadcastToAdminsAsync(realtimeDto, ct);
+                        break;
+                    case "all":
+                        await BroadcastToCustomersAsync(realtimeDto, ct);
+                        await BroadcastToAdminsAsync(realtimeDto, ct);
+                        break;
+                    default:
+                        // ✅ Default chỉ gửi cho admin (không gửi cho customer)
+                        await BroadcastToAdminsAsync(realtimeDto, ct);
+                        break;
+                }
             }
 
             _logger.LogInformation($"Notification created and broadcast: {dto.Title}");
@@ -156,18 +195,50 @@ TheLightStore
         }
     }
 
-    #endregion
+    public async Task SendToCustomerAsync(int customerId, RealTimeNotificationDto notification, CancellationToken ct = default)
+    {
+        try
+        {
+            await _hubContext.Clients.Group($"Customer_{customerId}")
+                .SendAsync("ReceiveNotification", notification, ct);
+            
+            _logger.LogInformation($"Notification sent to customer {customerId}: {notification.Title}");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"Error sending to customer {customerId}: {notification.Title}");
+        }
+    }
+
+    public async Task BroadcastToCustomersAsync(RealTimeNotificationDto notification, CancellationToken ct = default)
+    {
+        try
+        {
+            await _hubContext.Clients.Group("CustomersGroup")
+                .SendAsync("ReceiveNotification", notification, ct);
+            
+            _logger.LogInformation($"Notification broadcast to all customers: {notification.Title}");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"Error broadcasting to customers: {notification.Title}");
+        }
+    }
+
+    #endregion 
 
     #region Database Notifications
 
-    public async Task<ServiceResult<PagedResult<NotificationDto>>> GetUserNotificationsAsync(int userId, PagedRequest request, CancellationToken ct = default)
+    public async Task<ServiceResult<PagedResult<NotificationDto>>> GetUserNotificationsAsync(int userId, PagedRequest request, string userRole = "admin", CancellationToken ct = default)
     {
         try
         {
             var query = _context.Notifications
-                .Where(n => n.UserId == userId || n.UserId == null) // User-specific hoặc broadcast
+                .Where(n => (n.UserId == userId || n.UserId == null)) // User-specific hoặc broadcast
+                .Where(n => n.TargetRole == userRole || n.TargetRole == "all") // ✅ Filter theo TargetRole
                 .Where(n => n.ExpiresAt == null || n.ExpiresAt > DateTime.UtcNow) // Chưa hết hạn
-                .OrderByDescending(n => n.CreatedAt);
+                .OrderByDescending(n => n.Priority == "urgent" ? 4 : n.Priority == "high" ? 3 : n.Priority == "normal" ? 2 : 1)
+                .ThenByDescending(n => n.CreatedAt);
 
             var totalCount = await query.CountAsync(ct);
             
@@ -177,6 +248,7 @@ TheLightStore
                 .Select(n => new NotificationDto
                 {
                     Id = n.Id,
+                    TargetRole = n.TargetRole, // ✅ Thêm TargetRole
                     Type = n.Type,
                     Title = n.Title,
                     Content = n.Content,
@@ -207,13 +279,14 @@ TheLightStore
         }
     }
 
-    public async Task<ServiceResult<NotificationStatsDto>> GetUserNotificationStatsAsync(int userId, CancellationToken ct = default)
+    public async Task<ServiceResult<NotificationStatsDto>> GetUserNotificationStatsAsync(int userId, string userRole = "admin", CancellationToken ct = default)
     {
         try
         {
             var today = DateTime.UtcNow.Date;
             var query = _context.Notifications
-                .Where(n => n.UserId == userId || n.UserId == null)
+                .Where(n => (n.UserId == userId || n.UserId == null))
+                .Where(n => n.TargetRole == userRole || n.TargetRole == "all") // ✅ Filter theo TargetRole
                 .Where(n => n.ExpiresAt == null || n.ExpiresAt > DateTime.UtcNow);
 
             var stats = new NotificationStatsDto
@@ -296,6 +369,8 @@ TheLightStore
         // Gửi thông báo real-time cho admin
         var notification = new CreateNotificationDto
         {
+            UserId = null,
+            TargetRole = "admin", // ✅ Rõ ràng đây là thông báo cho admin
             Type = "order",
             Title = "Đơn hàng mới",
             Content = $"Khách hàng {order.CustomerName} vừa đặt đơn hàng #{order.OrderNumber} với giá trị {order.TotalAmount:C}",
@@ -315,6 +390,7 @@ TheLightStore
         // Gửi thông báo real-time cho admin
         var notification = new CreateNotificationDto
         {
+            TargetRole = "admin", // ✅ Rõ ràng đây là thông báo cho admin
             Type = "order",
             Title = "Cập nhật đơn hàng",
             Content = $"Đơn hàng #{order.OrderNumber} đã chuyển từ '{oldStatus}' sang '{newStatus}'",
@@ -330,6 +406,7 @@ TheLightStore
     {
         var notification = new CreateNotificationDto
         {
+            TargetRole = "admin", // ✅ Rõ ràng đây là thông báo cho admin
             Type = "payment",
             Title = "Thanh toán thành công",
             Content = $"Đơn hàng #{order.OrderNumber} đã được thanh toán thành công số tiền {order.TotalAmount:C}",
@@ -345,6 +422,7 @@ TheLightStore
     {
         var notification = new CreateNotificationDto
         {
+            TargetRole = "admin", // ✅ Rõ ràng đây là thông báo cho admin
             Type = "inventory",
             Title = "Cảnh báo hết hàng",
             Content = $"Sản phẩm '{productName}' chỉ còn {currentStock} sản phẩm trong kho",
@@ -354,6 +432,230 @@ TheLightStore
         };
 
         await CreateAndBroadcastNotificationAsync(notification, ct);
+    }
+
+    #endregion
+
+    #region Customer Notifications
+
+    public async Task NotifyCustomerOrderStatusAsync(int customerId, Order order, string newStatus, CancellationToken ct = default)
+    {
+        try
+        {
+            // Tạo thông báo trong database cho customer
+            var dbNotification = new CreateNotificationDto
+            {
+                UserId = customerId,
+                TargetRole = "customer", // ✅ Rõ ràng đây là thông báo cho customer
+                Type = "order",
+                Title = GetOrderStatusTitle(newStatus),
+                Content = GetOrderStatusContent(order, newStatus),
+                ReferenceId = order.Id,
+                RedirectUrl = $"/orders/{order.Id}",
+                Priority = GetOrderStatusPriority(newStatus)
+            };
+            
+            await CreateAndBroadcastNotificationAsync(dbNotification, ct);
+
+            // Gửi real-time notification cho customer
+            var realtimeNotification = new RealTimeNotificationDto
+            {
+                Type = "order",
+                Title = GetOrderStatusTitle(newStatus),
+                Content = GetOrderStatusContent(order, newStatus),
+                ReferenceId = order.Id,
+                RedirectUrl = $"/orders/{order.Id}",
+                Priority = GetOrderStatusPriority(newStatus),
+                Data = new { 
+                    OrderId = order.Id,
+                    OrderNumber = order.OrderNumber,
+                    NewStatus = newStatus,
+                    TotalAmount = order.TotalAmount
+                }
+            };
+
+            await SendToCustomerAsync(customerId, realtimeNotification, ct);
+            
+            _logger.LogInformation($"Customer {customerId} notified about order {order.OrderNumber} status change to {newStatus}");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"Error notifying customer {customerId} about order status change");
+        }
+    }
+
+    public async Task NotifyCustomerPaymentAsync(int customerId, Order order, bool success, string? paymentMethod = null, CancellationToken ct = default)
+    {
+        try
+        {
+            var title = success ? "Thanh toán thành công" : "Thanh toán thất bại";
+            var content = success 
+                ? $"Thanh toán cho đơn hàng #{order.OrderNumber} đã thành công. Số tiền: {order.TotalAmount:C}"
+                : $"Thanh toán cho đơn hàng #{order.OrderNumber} thất bại. Vui lòng thử lại.";
+            
+            if (!string.IsNullOrEmpty(paymentMethod))
+            {
+                content += $" Phương thức: {paymentMethod}";
+            }
+
+            // Tạo thông báo trong database
+            var dbNotification = new CreateNotificationDto
+            {
+                UserId = customerId,
+                TargetRole = "customer", // ✅ Rõ ràng đây là thông báo cho customer
+                Type = "payment",
+                Title = title,
+                Content = content,
+                ReferenceId = order.Id,
+                RedirectUrl = $"/orders/{order.Id}",
+                Priority = success ? "normal" : "high"
+            };
+            
+            await CreateAndBroadcastNotificationAsync(dbNotification, ct);
+
+            // Gửi real-time notification
+            var realtimeNotification = new RealTimeNotificationDto
+            {
+                Type = "payment",
+                Title = title,
+                Content = content,
+                ReferenceId = order.Id,
+                RedirectUrl = $"/orders/{order.Id}",
+                Priority = success ? "normal" : "high",
+                Data = new { 
+                    OrderId = order.Id,
+                    OrderNumber = order.OrderNumber,
+                    Success = success,
+                    PaymentMethod = paymentMethod,
+                    Amount = order.TotalAmount
+                }
+            };
+
+            await SendToCustomerAsync(customerId, realtimeNotification, ct);
+            
+            _logger.LogInformation($"Customer {customerId} notified about payment {(success ? "success" : "failure")} for order {order.OrderNumber}");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"Error notifying customer {customerId} about payment status");
+        }
+    }
+
+    public async Task NotifyCustomerPromotionAsync(int customerId, string title, string content, string? redirectUrl = null, CancellationToken ct = default)
+    {
+        try
+        {
+            // Tạo thông báo trong database
+            var dbNotification = new CreateNotificationDto
+            {
+                UserId = customerId,
+                TargetRole = "customer", // ✅ Rõ ràng đây là thông báo cho customer
+                Type = "promotion",
+                Title = title,
+                Content = content,
+                RedirectUrl = redirectUrl ?? "/promotions",
+                Priority = "normal"
+            };
+            
+            await CreateAndBroadcastNotificationAsync(dbNotification, ct);
+
+            // Gửi real-time notification
+            var realtimeNotification = new RealTimeNotificationDto
+            {
+                Type = "promotion",
+                Title = title,
+                Content = content,
+                RedirectUrl = redirectUrl ?? "/promotions",
+                Priority = "normal"
+            };
+
+            await SendToCustomerAsync(customerId, realtimeNotification, ct);
+            
+            _logger.LogInformation($"Customer {customerId} notified about promotion: {title}");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"Error notifying customer {customerId} about promotion");
+        }
+    }
+
+    public async Task BroadcastPromotionAsync(string title, string content, string? redirectUrl = null, CancellationToken ct = default)
+    {
+        try
+        {
+            // Tạo thông báo broadcast trong database (UserId = null)
+            var dbNotification = new CreateNotificationDto
+            {
+                UserId = null, // Broadcast to all
+                TargetRole = "customer", // ✅ Broadcast cho tất cả customers
+                Type = "promotion",
+                Title = title,
+                Content = content,
+                RedirectUrl = redirectUrl ?? "/promotions",
+                Priority = "normal"
+            };
+            
+            await CreateAndBroadcastNotificationAsync(dbNotification, ct);
+
+            // Gửi real-time notification cho tất cả customers
+            var realtimeNotification = new RealTimeNotificationDto
+            {
+                Type = "promotion",
+                Title = title,
+                Content = content,
+                RedirectUrl = redirectUrl ?? "/promotions",
+                Priority = "normal"
+            };
+
+            await BroadcastToCustomersAsync(realtimeNotification, ct);
+            
+            _logger.LogInformation($"Promotion broadcast to all customers: {title}");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error broadcasting promotion to customers");
+        }
+    }
+
+    #endregion
+
+    #region Helper Methods
+
+    private string GetOrderStatusTitle(string status)
+    {
+        return status.ToLower() switch
+        {
+            "confirmed" => "Đơn hàng đã được xác nhận",
+            "processing" => "Đơn hàng đang được xử lý",
+            "shipped" => "Đơn hàng đã được gửi đi",
+            "delivered" => "Đơn hàng đã được giao",
+            "cancelled" => "Đơn hàng đã bị hủy",
+            _ => "Cập nhật đơn hàng"
+        };
+    }
+
+    private string GetOrderStatusContent(Order order, string status)
+    {
+        return status.ToLower() switch
+        {
+            "confirmed" => $"Đơn hàng #{order.OrderNumber} đã được xác nhận và đang được chuẩn bị.",
+            "processing" => $"Đơn hàng #{order.OrderNumber} đang được xử lý. Chúng tôi sẽ sớm gửi hàng cho bạn.",
+            "shipped" => $"Đơn hàng #{order.OrderNumber} đã được gửi đi và đang trên đường đến bạn.",
+            "delivered" => $"Đơn hàng #{order.OrderNumber} đã được giao thành công. Cảm ơn bạn đã mua sắm!",
+            "cancelled" => $"Đơn hàng #{order.OrderNumber} đã bị hủy. Nếu có thắc mắc, vui lòng liên hệ hỗ trợ.",
+            _ => $"Đơn hàng #{order.OrderNumber} đã được cập nhật trạng thái: {status}"
+        };
+    }
+
+    private string GetOrderStatusPriority(string status)
+    {
+        return status.ToLower() switch
+        {
+            "cancelled" => "high",
+            "delivered" => "high",
+            "shipped" => "normal",
+            _ => "normal"
+        };
     }
 
     #endregion
