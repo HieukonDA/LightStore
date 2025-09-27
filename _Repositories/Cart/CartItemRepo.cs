@@ -159,4 +159,22 @@ public class CartItemRepo : ICartItemRepo
             throw new Exception($"Error retrieving cart items with details: {ex.Message}");
         }
     }
+
+    public async Task<List<CartItem>> GetCartItemsWithStockAsync(int cartId)
+    {
+        try
+        {
+            return await _context.CartItems
+                .Include(item => item.Product)
+                    .ThenInclude(p => p.ProductImages)
+                .Include(item => item.Variant)
+                .Where(item => item.CartId == cartId)
+                .OrderBy(item => item.AddedAt)
+                .ToListAsync();
+        }
+        catch (System.Exception ex)
+        {
+            throw new Exception($"Error retrieving cart items with stock information: {ex.Message}");
+        }
+    }
 }

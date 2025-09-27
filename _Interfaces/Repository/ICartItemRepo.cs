@@ -15,4 +15,5 @@ public interface ICartItemRepo
     Task<bool> ExistsInCartAsync(int cartId, int productId, int? variantId);
     Task UpdateQuantityAsync(int itemId, int newQuantity);
     Task<List<CartItem>> GetCartItemsWithDetailsAsync(int cartId);
+    Task<List<CartItem>> GetCartItemsWithStockAsync(int cartId);
 }

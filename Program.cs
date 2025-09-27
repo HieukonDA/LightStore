@@ -8,10 +8,12 @@ using TheLightStore.Interfaces.Notification;
 using TheLightStore.Interfaces.Notifications;
 using TheLightStore.Interfaces.Orders;
 using TheLightStore.Interfaces.Payment;
+using TheLightStore.Interfaces.ProductReviews;
 using TheLightStore.Interfaces.Repository;
 using TheLightStore.Interfaces.Search;
 using TheLightStore.Repositories.Orders;
 using TheLightStore.Repositories.Payment;
+using TheLightStore.Repositories.ProductReviews;
 using TheLightStore.Services.Auth;
 using TheLightStore.Services.BackgroundJobs;
 using TheLightStore.Services.Images;
@@ -19,6 +21,7 @@ using TheLightStore.Services.Inventory;
 using TheLightStore.Services.Notifications;
 using TheLightStore.Services.Orders;
 using TheLightStore.Services.Payment;
+using TheLightStore.Services.ProductReviews;
 using TheLightStore.Services.Search;
 using TheLightStore.Hubs;
 
@@ -199,6 +202,9 @@ builder.Services.AddScoped<IInventoryReservationRepo, InventoryReservationRepo>(
 // Address service
 builder.Services.AddScoped<IAddressService, AddressService>();
 
+// Product Review services
+builder.Services.AddScoped<IProductReviewService, ProductReviewService>();
+builder.Services.AddScoped<IProductReviewRepo, ProductReviewRepo>();
 
 builder.Services.AddSingleton<IpRateLimitService>();
 

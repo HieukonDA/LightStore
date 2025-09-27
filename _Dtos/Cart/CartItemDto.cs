@@ -17,4 +17,10 @@ public class CartItemDto
     
     public bool IsAvailable { get; set; } // Product still active?
     public DateTime AddedAt { get; set; }
+    
+    // ✅ Thêm thông tin stock
+    public int Stock { get; set; }
+    public int MaxStock { get; set; }
+    public bool IsInStock => Stock > 0;
+    public bool CanOrder => Stock >= Quantity;
 }

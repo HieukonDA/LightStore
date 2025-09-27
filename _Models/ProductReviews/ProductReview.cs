@@ -1,6 +1,6 @@
 namespace TheLightStore.Models.ProductReviews;
 
-public class ProductReview
+public class ProductReview 
 {
    public int Id { get; set; }
 
