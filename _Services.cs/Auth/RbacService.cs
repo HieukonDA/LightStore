@@ -8,12 +8,14 @@ public class RbacService : IRbacService
 {
     private readonly DBContext _context;
     private readonly IMemoryCache _cache;
+    private readonly ILogger<RbacService> _logger;
     private readonly TimeSpan _cacheExpiration = TimeSpan.FromMinutes(15);
 
-    public RbacService(DBContext context, IMemoryCache cache)
+    public RbacService(DBContext context, IMemoryCache cache, ILogger<RbacService> logger)
     {
         _context = context;
         _cache = cache;
+        _logger = logger;
     }
 
     public async Task<bool> HasPermissionAsync(int userId, string permission)
@@ -117,16 +119,96 @@ public class RbacService : IRbacService
             return false;
         }
     }
+
+    public async Task<bool> UpdateUserRoleAsync(int userId, int roleId)
+    {
+        _logger.LogInformation("Starting role update - UserId: {UserId}, NewRoleId: {RoleId}", userId, roleId);
+        
+        try
+        {
+            // Kiểm tra role có tồn tại không
+            var roleExists = await _context.Roles.AnyAsync(r => r.Id == roleId);
+            if (!roleExists)
+            {
+                _logger.LogError("Role not found - RoleId: {RoleId}", roleId);
+                return false;
+            }
+
+            // Kiểm tra user có tồn tại không
+            var userExists = await _context.Users.AnyAsync(u => u.Id == userId);
+            if (!userExists)
+            {
+                _logger.LogError("User not found - UserId: {UserId}", userId);
+                return false;
+            }
+
+            // Deactivate all current roles for this user
+            var currentRoles = await _context.UserRoles
+                .Where(ur => ur.UserId == userId && ur.IsActive)
+                .ToListAsync();
+
+            _logger.LogInformation("Found {Count} active roles to deactivate for user {UserId}", currentRoles.Count, userId);
+
+            foreach (var role in currentRoles)
+            {
+                role.IsActive = false;
+                _logger.LogDebug("Deactivating role {RoleId} for user {UserId}", role.RoleId, userId);
+            }
+
+            // Assign the new role
+            var existingUserRole = await _context.UserRoles
+                .FirstOrDefaultAsync(ur => ur.UserId == userId && ur.RoleId == roleId);
+
+            if (existingUserRole != null)
+            {
+                existingUserRole.IsActive = true;
+                existingUserRole.AssignedAt = DateTime.UtcNow;
+                _logger.LogInformation("Reactivating existing role {RoleId} for user {UserId}", roleId, userId);
+            }
+            else
+            {
+                var userRole = new UserRole
+                {
+                    UserId = userId,
+                    RoleId = roleId,
+                    AssignedAt = DateTime.UtcNow,
+                    IsActive = true
+                };
+                _context.UserRoles.Add(userRole);
+                _logger.LogInformation("Creating new role assignment {RoleId} for user {UserId}", roleId, userId);
+            }
+
+            var saveResult = await _context.SaveChangesAsync();
+            _logger.LogInformation("SaveChanges result: {SaveResult} records affected for user {UserId}", saveResult, userId);
+
+            // Clear cache
+            InvalidateUserCache(userId);
+            
+            _logger.LogInformation("Role update completed successfully - UserId: {UserId}, NewRoleId: {RoleId}", userId, roleId);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to update user role - UserId: {UserId}, RoleId: {RoleId}", userId, roleId);
+            return false;
+        }
+    }
     
     // ================= Internal helper methods =================
 
     private async Task<IEnumerable<string>> GetUserRolesInternalAsync(int userId)
     {
-        return await _context.UserRoles
+        var userRoles = await _context.UserRoles
             .Where(ur => ur.UserId == userId && ur.IsActive)
             .Include(ur => ur.Role)
-            .Select(ur => ur.Role.Name)
             .ToListAsync();
+
+        _logger.LogDebug("GetUserRoles - UserId: {UserId}, Found {Count} active roles: {Roles}", 
+            userId, 
+            userRoles.Count, 
+            string.Join(", ", userRoles.Select(ur => $"ID={ur.RoleId}:Name={ur.Role.Name}")));
+
+        return userRoles.Select(ur => ur.Role.Name).ToList();
     }
 
     private async Task<IEnumerable<string>> GetUserPermissionsInternalAsync(int userId)

@@ -25,4 +25,12 @@ public interface IAuthService
     Task<ServiceResult<PagedResult<UserDto>>> GetCustomersAsync(PagedRequest request); // danh sách theo page
     Task<ServiceResult<UserDto>> GetCustomerByIdAsync(int customerId); // xem chi tiết
     Task<ServiceResult<bool>> DeleteCustomerAsync(int customerId); // xóa khách hàng
+    Task<ServiceResult<bool>> UpdateCustomerRoleAsync(int customerId, UpdateCustomerRoleDto updateRoleDto); // cập nhật role
+    
+    // User profile management
+    Task<ServiceResult<UserDto>> UpdateProfileAsync(UpdateProfileDto updateProfileDto); // cập nhật thông tin cá nhân
+    
+    // Debug và utility methods
+    Task<ServiceResult<List<RoleDto>>> GetAllRolesAsync(); // lấy tất cả roles
+    Task<ServiceResult<UserRoleDetailDto>> GetCustomerRolesDetailAsync(int customerId); // chi tiết roles của user
 }

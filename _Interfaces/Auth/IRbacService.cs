@@ -8,4 +8,5 @@ public interface IRbacService
     Task<IEnumerable<string>> GetUserRolesAsync(int userId);
     Task<bool> AssignRoleToUserAsync(int userId, int roleId);
     Task<bool> RemoveRoleFromUserAsync(int userId, int roleId);
+    Task<bool> UpdateUserRoleAsync(int userId, int roleId);
 }

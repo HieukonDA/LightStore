@@ -121,7 +121,46 @@ public class AuthController : ControllerBase
         return result.Success ? Ok(result) : BadRequest(result);
     }
 
+    [Authorize]
+    [HttpPut("profile")]
+    public async Task<IActionResult> UpdateProfile([FromBody] UpdateProfileDto updateProfileDto)
+    {
+        var result = await _authService.UpdateProfileAsync(updateProfileDto);
+        
+        if (result.Success)
+        {
+            return Ok(new
+            {
+                message = result.Message,
+                data = result.Data,
+                success = true
+            });
+        }
+
+        return BadRequest(new
+        {
+            message = result.Message,
+            errors = result.Errors
+        });
+    }
+
     #region Admin - Customer Management
+
+    [Authorize(Roles = "Admin")]
+    [HttpGet("roles")]
+    public async Task<IActionResult> GetAllRoles()
+    {
+        var result = await _authService.GetAllRolesAsync();
+        return result.Success ? Ok(result) : BadRequest(result);
+    }
+
+    [Authorize(Roles = "Admin")]
+    [HttpGet("customers/{customerId}/roles")]
+    public async Task<IActionResult> GetCustomerRoles(int customerId)
+    {
+        var result = await _authService.GetCustomerRolesDetailAsync(customerId);
+        return result.Success ? Ok(result) : BadRequest(result);
+    }
 
     [Authorize(Roles = "Admin")]
     [HttpGet("customers")]
@@ -145,6 +184,28 @@ public class AuthController : ControllerBase
     {
         var result = await _authService.DeleteCustomerAsync(customerId);
         return result.Success ? Ok(result) : BadRequest(result);
+    }
+
+    [Authorize(Roles = "Admin")]
+    [HttpPut("customers/{customerId}/role")]
+    public async Task<IActionResult> UpdateCustomerRole(int customerId, [FromBody] UpdateCustomerRoleDto updateRoleDto)
+    {
+        var result = await _authService.UpdateCustomerRoleAsync(customerId, updateRoleDto);
+        
+        if (result.Success)
+        {
+            return Ok(new
+            {
+                message = result.Message,
+                success = true
+            });
+        }
+
+        return BadRequest(new
+        {
+            message = result.Message,
+            errors = result.Errors
+        });
     }
 
     #endregion

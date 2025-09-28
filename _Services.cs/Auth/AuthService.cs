@@ -59,7 +59,7 @@ public class AuthService : IAuthService
                 Email = user.Email,
                 FirstName = user.FirstName,
                 LastName = user.LastName,
-                Phone = user.Phone,
+                Phone = user.Phone ?? string.Empty,
                 UserType = user.UserType,
                 CreatedAt = user.CreatedAt,
                 Roles = roles.ToList() // gán roles luôn cho DTO
@@ -236,7 +236,7 @@ public class AuthService : IAuthService
                     Email = user.Email,
                     FirstName = user.FirstName,
                     LastName = user.LastName,
-                    Phone = user.Phone,
+                    Phone = user.Phone ?? string.Empty,
                     UserType = user.UserType,
                     CreatedAt = user.CreatedAt,
                     Roles = roles.ToList()
@@ -628,8 +628,11 @@ public class AuthService : IAuthService
     {
         try
         {
-            // Lấy tất cả users theo page từ repo
-            var usersQuery = _context.Users.AsQueryable();
+            // Lấy tất cả users theo page từ repo với Include roles
+            var usersQuery = _context.Users
+                .Include(u => u.UserRoles.Where(ur => ur.IsActive))
+                .ThenInclude(ur => ur.Role)
+                .AsQueryable();
 
             // Search
             if (!string.IsNullOrWhiteSpace(request.Search))
@@ -660,17 +663,20 @@ public class AuthService : IAuthService
                 .Take(request.Size)
                 .ToListAsync();
 
-            // Map to UserDto
+            // Map to UserDto với roles đã được load
             var userDtos = users.Select(u => new UserDto
             {
                 Id = u.Id,
                 Email = u.Email,
                 FirstName = u.FirstName,
                 LastName = u.LastName,
-                Phone = u.Phone ?? "",
+                Phone = u.Phone ?? string.Empty,
                 UserType = u.UserType,
                 CreatedAt = u.CreatedAt,
-                Roles = u.UserRoles.Select(r => r.Role.Name)
+                Roles = u.UserRoles
+                    .Where(ur => ur.IsActive)
+                    .Select(ur => ur.Role.Name)
+                    .ToList()
             }).ToList();
 
             var pagedResult = new PagedResult<UserDto>
@@ -698,16 +704,19 @@ public class AuthService : IAuthService
             if (user == null)
                 return ServiceResult<UserDto>.FailureResult("Customer not found.", new List<string>());
 
+            // Lấy roles thông qua RBAC service để đảm bảo chính xác
+            var roles = await _rbacService.GetUserRolesAsync(customerId);
+
             var userDto = new UserDto
             {
                 Id = user.Id,
                 Email = user.Email,
                 FirstName = user.FirstName,
                 LastName = user.LastName,
-                Phone = user.Phone ?? "",
+                Phone = user.Phone ?? string.Empty,
                 UserType = user.UserType,
                 CreatedAt = user.CreatedAt,
-                Roles = user.UserRoles.Select(r => r.Role.Name)
+                Roles = roles.ToList()
             };
 
             return ServiceResult<UserDto>.SuccessResult(userDto, "Customer retrieved successfully.");
@@ -736,15 +745,189 @@ public class AuthService : IAuthService
         }
     }
 
+    public async Task<ServiceResult<bool>> UpdateCustomerRoleAsync(int customerId, UpdateCustomerRoleDto updateRoleDto)
+    {
+        try
+        {
+            // Kiểm tra user tồn tại
+            var user = await _userRepo.GetUserByIdAsync(customerId);
+            if (user == null)
+            {
+                return ServiceResult<bool>.FailureResult("Customer not found.", new List<string>());
+            }
+
+            // Kiểm tra role có hợp lệ không
+            if (updateRoleDto.RoleId <= 0)
+            {
+                return ServiceResult<bool>.FailureResult("Invalid role ID.", new List<string>());
+            }
+
+            // Cập nhật role thông qua RBAC service
+            var result = await _rbacService.UpdateUserRoleAsync(customerId, updateRoleDto.RoleId);
+            if (!result)
+            {
+                return ServiceResult<bool>.FailureResult("Failed to update customer role.", new List<string>());
+            }
+
+            _logger.LogInformation("Customer role updated - CustomerId: {CustomerId}, NewRoleId: {RoleId}, Reason: {Reason}", 
+                customerId, updateRoleDto.RoleId, updateRoleDto.Reason ?? "No reason provided");
+
+            return ServiceResult<bool>.SuccessResult(true, "Customer role updated successfully.");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to update customer role - CustomerId: {CustomerId}", customerId);
+            return ServiceResult<bool>.FailureResult("An error occurred while updating customer role.", new List<string> { ex.Message });
+        }
+    }
+
+    public async Task<ServiceResult<UserDto>> UpdateProfileAsync(UpdateProfileDto updateProfileDto)
+    {
+        try
+        {
+            // Lấy userId từ JWT token
+            var userIdClaim = _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.NameIdentifier);
+            if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out int userId))
+            {
+                return ServiceResult<UserDto>.FailureResult("Unauthorized.", new List<string>());
+            }
+
+            var user = await _userRepo.GetUserByIdAsync(userId);
+            if (user == null)
+            {
+                return ServiceResult<UserDto>.FailureResult("User not found.", new List<string>());
+            }
+
+            // Kiểm tra email có bị trùng không (nếu có thay đổi email)
+            if (!string.IsNullOrWhiteSpace(updateProfileDto.Email) && updateProfileDto.Email != user.Email)
+            {
+                var existingUser = await _userRepo.GetUserByEmailAsync(updateProfileDto.Email);
+                if (existingUser != null)
+                {
+                    return ServiceResult<UserDto>.FailureResult("Email already exists.", new List<string>());
+                }
+
+                // Validate email format
+                if (!IsValidEmail(updateProfileDto.Email))
+                {
+                    return ServiceResult<UserDto>.FailureResult("Invalid email format.", new List<string>());
+                }
+
+                user.Email = updateProfileDto.Email;
+                user.EmailVerified = false; // Yêu cầu verify lại email mới
+            }
+
+            // Cập nhật các thông tin khác
+            if (!string.IsNullOrWhiteSpace(updateProfileDto.FirstName))
+            {
+                user.FirstName = updateProfileDto.FirstName;
+            }
+
+            if (!string.IsNullOrWhiteSpace(updateProfileDto.LastName))
+            {
+                user.LastName = updateProfileDto.LastName;
+            }
+
+            if (!string.IsNullOrWhiteSpace(updateProfileDto.Phone))
+            {
+                user.Phone = updateProfileDto.Phone;
+            }
+
+            user.UpdatedAt = DateTime.UtcNow;
+
+            var updateResult = await _userRepo.UpdateUserAsync(user);
+            if (!updateResult)
+            {
+                return ServiceResult<UserDto>.FailureResult("Failed to update profile.", new List<string>());
+            }
+
+            // Lấy roles để trả về trong response
+            var roles = await _rbacService.GetUserRolesAsync(user.Id);
+
+            var userDto = new UserDto
+            {
+                Id = user.Id,
+                Email = user.Email,
+                FirstName = user.FirstName,
+                LastName = user.LastName,
+                Phone = user.Phone ?? string.Empty,
+                UserType = user.UserType,
+                CreatedAt = user.CreatedAt,
+                Roles = roles.ToList()
+            };
+
+            _logger.LogInformation("Profile updated successfully for user {UserId}", user.Id);
+            return ServiceResult<UserDto>.SuccessResult(userDto, "Profile updated successfully.");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to update profile");
+            return ServiceResult<UserDto>.FailureResult("An error occurred while updating profile.", new List<string> { ex.Message });
+        }
+    }
+
+    public async Task<ServiceResult<List<RoleDto>>> GetAllRolesAsync()
+    {
+        try
+        {
+            var roles = await _context.Roles
+                .Select(r => new RoleDto
+                {
+                    Id = r.Id,
+                    Name = r.Name,
+                    Description = r.Description ?? string.Empty
+                })
+                .ToListAsync();
+
+            return ServiceResult<List<RoleDto>>.SuccessResult(roles, "Roles retrieved successfully.");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get all roles");
+            return ServiceResult<List<RoleDto>>.FailureResult("An error occurred while retrieving roles.", new List<string> { ex.Message });
+        }
+    }
+
+    public async Task<ServiceResult<UserRoleDetailDto>> GetCustomerRolesDetailAsync(int customerId)
+    {
+        try
+        {
+            var user = await _userRepo.GetUserByIdAsync(customerId);
+            if (user == null)
+                return ServiceResult<UserRoleDetailDto>.FailureResult("Customer not found.", new List<string>());
+
+            // Lấy tất cả role assignments cho user (bao gồm cả inactive)
+            var roleAssignments = await _context.UserRoles
+                .Where(ur => ur.UserId == customerId)
+                .Include(ur => ur.Role)
+                .Select(ur => new UserRoleAssignmentDto
+                {
+                    RoleId = ur.RoleId,
+                    RoleName = ur.Role.Name,
+                    IsActive = ur.IsActive,
+                    AssignedAt = ur.AssignedAt
+                })
+                .OrderByDescending(ra => ra.AssignedAt)
+                .ToListAsync();
+
+            var userRoleDetail = new UserRoleDetailDto
+            {
+                UserId = user.Id,
+                UserEmail = user.Email,
+                UserName = $"{user.FirstName} {user.LastName}".Trim(),
+                RoleAssignments = roleAssignments
+            };
+
+            return ServiceResult<UserRoleDetailDto>.SuccessResult(userRoleDetail, "Customer roles retrieved successfully.");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get customer roles detail - CustomerId: {CustomerId}", customerId);
+            return ServiceResult<UserRoleDetailDto>.FailureResult("An error occurred while retrieving customer roles.", new List<string> { ex.Message });
+        }
+    }
+
     #endregion
-
-
-
-
-
-
-
-
 
     #region helper methods
 
