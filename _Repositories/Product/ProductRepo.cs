@@ -22,6 +22,7 @@ public class ProductRepo : IProductRepo
        .Include(c => c.Category)
        .Include(c => c.Brand)
        .Include(c => c.ProductImages.Where(img => img.IsPrimary == true)) // ✅ Include primary image cho list
+       .Include(c => c.ProductReviews.Where(r => r.Status == "approved")) // ✅ Include approved reviews for rating calculation
        .AsQueryable();
 
         // Apply search if provided
@@ -79,6 +80,7 @@ public class ProductRepo : IProductRepo
             .Include(c => c.Category)
             .Include(c => c.Brand)
             .Include(c => c.ProductImages) // ✅ Include all images for detail view
+            .Include(c => c.ProductReviews.Where(r => r.Status == "approved")) // ✅ Include approved reviews only
             .AsQueryable();
 
         return await query.FirstOrDefaultAsync();
@@ -91,6 +93,7 @@ public class ProductRepo : IProductRepo
             .Include(c => c.Category)
             .Include(c => c.Brand)
             .Include(c => c.ProductImages) // ✅ Include all images for detail view
+            .Include(c => c.ProductReviews.Where(r => r.Status == "approved")) // ✅ Include approved reviews only
             .AsQueryable();
 
         return await query.FirstOrDefaultAsync();
@@ -143,6 +146,7 @@ public class ProductRepo : IProductRepo
             .Include(c => c.Category)
             .Include(c => c.Brand)
             .Include(c => c.ProductImages.Where(img => img.IsPrimary == true)) // ✅ Include primary image
+            .Include(c => c.ProductReviews.Where(r => r.Status == "approved")) // ✅ Include approved reviews
             .AsQueryable();
 
         // Apply search if provided
@@ -201,6 +205,7 @@ public class ProductRepo : IProductRepo
             .Include(p => p.Category)
             .Include(p => p.Brand)
             .Include(p => p.ProductImages.Where(img => img.IsPrimary == true))
+            .Include(p => p.ProductReviews.Where(r => r.Status == "approved")) // ✅ Include approved reviews
             .Where(p => p.IsActive && p.Category != null && p.Category.Slug == categorySlug)
             .AsQueryable();
 
@@ -287,6 +292,7 @@ public class ProductRepo : IProductRepo
             .Include(p => p.Category)
             .Include(p => p.Brand)
             .Include(p => p.ProductImages.Where(img => img.IsPrimary == true))
+            .Include(p => p.ProductReviews.Where(r => r.Status == "approved")) // ✅ Include approved reviews
             .AsQueryable();
 
         // Apply search if provided
@@ -347,6 +353,7 @@ public class ProductRepo : IProductRepo
             .Include(p => p.Category)
             .Include(p => p.Brand)
             .Include(p => p.ProductImages.Where(img => img.IsPrimary == true))
+            .Include(p => p.ProductReviews.Where(r => r.Status == "approved")) // ✅ Include approved reviews
             .AsQueryable();
 
         // Apply search if provided
@@ -423,6 +430,7 @@ public class ProductRepo : IProductRepo
             .Include(p => p.Category)
             .Include(p => p.Brand)
             .Include(p => p.ProductImages.Where(img => img.IsPrimary == true))
+            .Include(p => p.ProductReviews.Where(r => r.Status == "approved")) // ✅ Include approved reviews
             .AsQueryable();
 
         // Apply search if provided

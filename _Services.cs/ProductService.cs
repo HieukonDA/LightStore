@@ -1,6 +1,7 @@
 using System.Text.RegularExpressions;
 using TheLightStore.Interfaces.Products;
 using TheLightStore.Interfaces.Images;
+using TheLightStore.Models.ProductReviews;
 
 namespace TheLightStore.Services.Products;
 
@@ -571,7 +572,7 @@ public class ProductService : IProductService
         }
 
         // Business logic validation
-        if (dto.SalePrice != null && dto.SalePrice > dto.BasePrice)
+        if (dto.SalePrice > dto.BasePrice)
         {
             errors.Add("Sale price cannot be greater than base price");
         }
@@ -636,7 +637,7 @@ public class ProductService : IProductService
             errors.Add("SKU cannot be empty");
         }
 
-        if (dto.BasePrice != null && dto.BasePrice <= 0)
+        if (dto.BasePrice <= 0)
         {
             errors.Add("Base price must be greater than 0");
         }
@@ -647,7 +648,7 @@ public class ProductService : IProductService
         }
 
         // Business logic validation
-        if (dto.SalePrice != null && dto.BasePrice != null && dto.SalePrice > dto.BasePrice)
+        if (dto.SalePrice > dto.BasePrice)
         {
             errors.Add("Sale price cannot be greater than base price");
         }
@@ -709,6 +710,12 @@ public class ProductService : IProductService
 
     private ProductDto MapToDto(Product product)
     {
+        // Debug logging for reviews
+        var reviewCount = product.ProductReviews?.Count() ?? 0;
+        var approvedReviewCount = product.ProductReviews?.Count(r => r.Status == "approved") ?? 0;
+        _logger.LogInformation("Product {ProductId} - Total Reviews: {TotalCount}, Approved: {ApprovedCount}", 
+            product.Id, reviewCount, approvedReviewCount);
+
         return new ProductDto
         {
             Id = product.Id,
@@ -716,8 +723,8 @@ public class ProductService : IProductService
             BrandId = product.BrandId,
             Name = product.Name,
             Slug = product.Slug,
-            ShortDescription = product.ShortDescription,
-            Description = product.Description,
+            ShortDescription = product.ShortDescription ?? string.Empty,
+            Description = product.Description ?? string.Empty,
             Sku = product.Sku,
             BasePrice = product.BasePrice,
             SalePrice = product.SalePrice,
@@ -725,9 +732,9 @@ public class ProductService : IProductService
             IsOnSale = IsProductOnSale(product.BasePrice, product.SalePrice),
             DiscountPercentage = CalculateDiscountPercentage(product.BasePrice, product.SalePrice),
             Weight = product.Weight,
-            Dimensions = product.Dimensions,
-            Origin = product.Origin,
-            WarrantyType = product.WarrantyType,
+            Dimensions = product.Dimensions ?? string.Empty,
+            Origin = product.Origin ?? string.Empty,
+            WarrantyType = product.WarrantyType ?? string.Empty,
             WarrantyPeriod = product.WarrantyPeriod,
             ManageStock = product.ManageStock,
             StockQuantity = product.StockQuantity,
@@ -735,8 +742,8 @@ public class ProductService : IProductService
             AllowBackorder = product.AllowBackorder,
             IsInStock = product.StockQuantity > 0,
             VersionNumber = product.VersionNumber,
-            MetaTitle = product.MetaTitle,
-            MetaDescription = product.MetaDescription,
+            MetaTitle = product.MetaTitle ?? string.Empty,
+            MetaDescription = product.MetaDescription ?? string.Empty,
             IsActive = product.IsActive,
             IsFeatured = product.IsFeatured,
             HasVariants = product.HasVariants,
@@ -744,32 +751,70 @@ public class ProductService : IProductService
             // ✅ Map thumbnail và images với full URL
             ThumbnailUrl = product.ProductImages?.FirstOrDefault(i => i.IsPrimary == true)?.ImageUrl != null 
                 ? _imageService.GetFullImageUrl(product.ProductImages.FirstOrDefault(i => i.IsPrimary == true)!.ImageUrl)
-                : null,
+                : string.Empty,
             Images = product.ProductImages?.Select(img => new ProductImageDto(
                 img.Id,
                 _imageService.GetFullImageUrl(img.ImageUrl), // ✅ Convert to full URL
-                img.AltText ?? "",
+                img.AltText ?? string.Empty,
                 img.IsPrimary ?? false,
                 img.SortOrder ?? 0
-            )).OrderBy(img => img.SortOrder).ToList(),
-            Rating = 0, // TODO: Calculate from reviews
-            ReviewCount = 0, // TODO: Count from reviews
+            )).OrderBy(img => img.SortOrder).ToList() ?? new List<ProductImageDto>(),
+            Rating = CalculateAverageRating(product.ProductReviews),
+            ReviewCount = CountApprovedReviews(product.ProductReviews),
             ViewCount = 0, // TODO: Implement view tracking
             Category = product.Category != null ? new CategoryDto
             {
                 Id = product.Category.Id,
                 Name = product.Category.Name,
-                Slug = product.Category.Slug ?? GenerateSlug(product.Category.Name)
-            } : new CategoryDto(),
+                Slug = product.Category.Slug ?? GenerateSlug(product.Category.Name),
+                Description = product.Category.Description ?? string.Empty,
+                ImageUrl = product.Category.ImageUrl ?? string.Empty,
+                ParentId = product.Category.ParentId ?? 0,
+                ParentName = product.Category.Parent?.Name ?? string.Empty,
+                SortOrder = product.Category.SortOrder,
+                IsActive = product.Category.IsActive,
+                CreatedAt = product.Category.CreatedAt,
+                UpdatedAt = product.Category.UpdatedAt,
+                ProductCount = 0 // TODO: Calculate product count in category
+            } : new CategoryDto
+            {
+                Id = 0,
+                Name = string.Empty,
+                Slug = string.Empty,
+                Description = string.Empty,
+                ImageUrl = string.Empty,
+                ParentId = 0,
+                ParentName = string.Empty,
+                SortOrder = 0,
+                IsActive = false,
+                ProductCount = 0
+            },
             Brand = product.Brand != null ? new BrandDto
             {
                 Id = product.Brand.Id,
                 Name = product.Brand.Name,
-                LogoUrl = product.Brand.LogoUrl
+                LogoUrl = product.Brand.LogoUrl ?? string.Empty,
+                Description = product.Brand.Description ?? string.Empty,
+                IsActive = product.Brand.IsActive,
+                CreatedAt = product.Brand.CreatedAt ?? DateTime.MinValue
             } : null,
-            Variants = null, // TODO: Implement variants
-            Attributes = null, // TODO: Implement attributes
-            Specifications = null, // TODO: Implement specifications
+            Variants = new List<ProductVariantDto>(), // TODO: Implement variants
+            Attributes = new List<ProductAttributeDto>(), // TODO: Implement attributes
+            Specifications = new ProductSpecsDto
+            {
+                // TODO: Implement specifications with default values
+                PowerConsumption = string.Empty,
+                LightColor = string.Empty,
+                LightOutput = string.Empty,
+                IPRating = string.Empty,
+                BeamAngle = string.Empty,
+                IsDimmable = false,
+                Weight = product.Weight ?? 0,
+                Dimensions = product.Dimensions ?? string.Empty,
+                Origin = product.Origin ?? string.Empty,
+                WarrantyType = product.WarrantyType ?? string.Empty,
+                WarrantyPeriod = product.WarrantyPeriod ?? 0
+            },
             CreatedAt = product.CreatedAt,
             UpdatedAt = product.UpdatedAt
         };
@@ -777,6 +822,12 @@ public class ProductService : IProductService
 
     private ProductListDto MapToListDto(Product product)
     {
+        // Debug logging for reviews in list view
+        var reviewCount = product.ProductReviews?.Count() ?? 0;
+        var approvedReviewCount = product.ProductReviews?.Count(r => r.Status == "approved") ?? 0;
+        _logger.LogDebug("Product {ProductId} (List) - Total Reviews: {TotalCount}, Approved: {ApprovedCount}", 
+            product.Id, reviewCount, approvedReviewCount);
+
         return new ProductListDto
         {
             Id = product.Id,
@@ -792,18 +843,18 @@ public class ProductService : IProductService
             // ✅ Map thumbnail từ primary image với full URL
             ThumbnailUrl = product.ProductImages?.FirstOrDefault(i => i.IsPrimary == true)?.ImageUrl != null
                 ? _imageService.GetFullImageUrl(product.ProductImages.FirstOrDefault(i => i.IsPrimary == true)!.ImageUrl)
-                : null,
+                : string.Empty,
             IsInStock = product.StockQuantity > 0,
             StockQuantity = product.StockQuantity,
             IsActive = product.IsActive,
             IsFeatured = product.IsFeatured,
             IsNewProduct = IsNewProduct(product.CreatedAt),
-            Rating = 0, // TODO: Calculate from reviews
-            ReviewCount = 0, // TODO: Count from reviews
+            Rating = CalculateAverageRating(product.ProductReviews), // ✅ Calculate actual rating
+            ReviewCount = CountApprovedReviews(product.ProductReviews), // ✅ Count actual reviews
             CategoryId = product.CategoryId,
             CategoryName = product.Category?.Name ?? string.Empty,
             BrandId = product.BrandId,
-            BrandName = product.Brand?.Name,
+            BrandName = product.Brand?.Name ?? string.Empty,
             CreatedAt = product.CreatedAt
         };
     }
@@ -864,11 +915,9 @@ public class ProductService : IProductService
         if (dto.Description != null)
             existingProduct.Description = dto.Description;
 
-        if (dto.BasePrice != null)
-            existingProduct.BasePrice = dto.BasePrice;
-
-        if (dto.SalePrice != null)
-            existingProduct.SalePrice = dto.SalePrice;
+        // BasePrice and SalePrice are non-nullable, always update
+        existingProduct.BasePrice = dto.BasePrice;
+        existingProduct.SalePrice = dto.SalePrice;
 
         if (dto.Weight.HasValue)
             existingProduct.Weight = dto.Weight;
@@ -964,6 +1013,29 @@ public class ProductService : IProductService
         slug = slug.Trim('-');
 
         return slug;
+    }
+
+    private decimal CalculateAverageRating(ICollection<ProductReview>? reviews)
+    {
+        if (reviews == null || !reviews.Any())
+            return 0;
+
+        var approvedReviews = reviews.Where(r => r.Status == "approved" && r.Rating > 0).ToList();
+        if (!approvedReviews.Any())
+            return 0;
+
+        var totalRating = approvedReviews.Sum(r => r.Rating);
+        var avgRating = (decimal)totalRating / approvedReviews.Count;
+        
+        return Math.Round(avgRating, 1); // Round to 1 decimal place (e.g., 4.3)
+    }
+
+    private int CountApprovedReviews(ICollection<ProductReview>? reviews)
+    {
+        if (reviews == null || !reviews.Any())
+            return 0;
+
+        return reviews.Count(r => r.Status == "approved");
     }
     #endregion
 }
