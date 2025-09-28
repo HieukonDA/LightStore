@@ -168,59 +168,65 @@ public class OrderService : IOrderService
     }
 
 
-    public async Task<ServiceResult<Order?>> GetOrderByIdAsync(int orderId, CancellationToken ct = default)
+    public async Task<ServiceResult<OrderDto?>> GetOrderByIdAsync(int orderId, CancellationToken ct = default)
     {
         try
         {
             if (orderId <= 0)
             {
                 Console.WriteLine("[ERROR] Invalid orderId");
-                return ServiceResult<Order?>.FailureResult("Invalid orderId", new List<string> { "orderId must be greater than 0" });
+                return ServiceResult<OrderDto?>.FailureResult("Invalid orderId", new List<string> { "orderId must be greater than 0" });
             }
 
             var order = await _orderRepo.GetByIdAsync(orderId, ct);
             if (order == null)
             {
                 Console.WriteLine("[ERROR] Order not found");
-                return ServiceResult<Order?>.FailureResult("Order not found", new List<string> { $"Order {orderId} does not exist" });
+                return ServiceResult<OrderDto?>.FailureResult("Order not found", new List<string> { $"Order {orderId} does not exist" });
             }
 
+            // Map Order entity to OrderDto with OrderItems
+            var orderDto = MapOrderToDto(order);
+
             Console.WriteLine("[SUCCESS] Order retrieved successfully");
-            return ServiceResult<Order?>.SuccessResult(order, "Order retrieved successfully");
+            return ServiceResult<OrderDto?>.SuccessResult(orderDto, "Order retrieved successfully");
         }
         catch (Exception ex)
         {
             Console.WriteLine($"[EXCEPTION] {ex.Message}");
             _logger.LogError(ex, "Error getting order {OrderId}", orderId);
-            return ServiceResult<Order?>.FailureResult("Failed to get order", new List<string> { ex.Message });
+            return ServiceResult<OrderDto?>.FailureResult("Failed to get order", new List<string> { ex.Message });
         }
     }
 
-    public async Task<ServiceResult<Order?>> GetOrderByOrderNumberAsync(string orderNumber, CancellationToken ct = default)
+    public async Task<ServiceResult<OrderDto?>> GetOrderByOrderNumberAsync(string orderNumber, CancellationToken ct = default)
     {
         try
         {
             if (string.IsNullOrWhiteSpace(orderNumber))
             {
                 Console.WriteLine("[ERROR] Invalid orderNumber");
-                return ServiceResult<Order?>.FailureResult("Invalid orderNumber", new List<string> { "orderNumber must be provided" });
+                return ServiceResult<OrderDto?>.FailureResult("Invalid orderNumber", new List<string> { "orderNumber must be provided" });
             }
 
             var order = await _orderRepo.GetByOrderNumberAsync(orderNumber, ct);
             if (order == null)
             {
                 Console.WriteLine("[ERROR] Order not found");
-                return ServiceResult<Order?>.FailureResult("Order not found", new List<string> { $"Order {orderNumber} does not exist" });
+                return ServiceResult<OrderDto?>.FailureResult("Order not found", new List<string> { $"Order {orderNumber} does not exist" });
             }
 
+            // Map Order entity to OrderDto with OrderItems  
+            var orderDto = MapOrderToDto(order);
+
             Console.WriteLine("[SUCCESS] Order retrieved successfully");
-            return ServiceResult<Order?>.SuccessResult(order, "Order retrieved successfully");
+            return ServiceResult<OrderDto?>.SuccessResult(orderDto, "Order retrieved successfully");
         }
         catch (Exception ex)
         {
             Console.WriteLine($"[EXCEPTION] {ex.Message}");
             _logger.LogError(ex, "Error getting order {OrderNumber}", orderNumber);
-            return ServiceResult<Order?>.FailureResult("Failed to get order", new List<string> { ex.Message });
+            return ServiceResult<OrderDto?>.FailureResult("Failed to get order", new List<string> { ex.Message });
         }
     }
 
@@ -722,5 +728,72 @@ public class OrderService : IOrderService
     {
         // Ví dụ: ORD-YYYYMMDD-random4digit
         return $"ORD-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString("N")[..6].ToUpper()}";
+    }
+
+    private OrderDto MapOrderToDto(Order order)
+    {
+        return new OrderDto
+        {
+            Id = order.Id,
+            OrderNumber = order.OrderNumber,
+            OrderStatus = order.OrderStatus,
+            OrderDate = order.OrderDate ?? DateTime.MinValue,
+            Subtotal = order.Subtotal,
+            TaxAmount = order.TaxAmount,
+            ShippingCost = order.ShippingCost,
+            DiscountAmount = order.DiscountAmount,
+            TotalAmount = order.TotalAmount,
+            CustomerName = order.CustomerName,
+            CustomerEmail = order.CustomerEmail,
+            CustomerPhone = order.CustomerPhone,
+            
+            // Map OrderItems
+            Items = order.OrderItems.Select(item => new OrderItemDto
+            {
+                ProductId = item.ProductId,
+                VariantId = item.VariantId,
+                ProductName = item.ProductName,
+                ProductSku = item.ProductSku,
+                VariantName = item.VariantName,
+                Quantity = item.Quantity,
+                UnitPrice = item.UnitPrice,
+                TotalPrice = item.TotalPrice,
+                ProductAttributes = item.ProductAttributes
+            }).ToList(),
+            
+            // Map ShippingAddress (if exists)
+            ShippingAddress = order.OrderAddresses.FirstOrDefault(a => a.AddressType == "shipping") is var shippingAddr && shippingAddr != null
+                ? new OrderAddressDto
+                {
+                    AddressType = shippingAddr.AddressType,
+                    RecipientName = shippingAddr.RecipientName,
+                    Phone = shippingAddr.Phone,
+                    AddressLine1 = shippingAddr.AddressLine1,
+                    AddressLine2 = shippingAddr.AddressLine2,
+                    Ward = shippingAddr.Ward,
+                    District = shippingAddr.District,
+                    City = shippingAddr.City,
+                    Province = shippingAddr.Province,
+                    PostalCode = shippingAddr.PostalCode
+                } : new OrderAddressDto(),
+            
+            // Map Payment (if exists)
+            Payment = order.OrderPayments.FirstOrDefault() is var payment && payment != null
+                ? new OrderPaymentDto
+                {
+                    Id = payment.Id,
+                    OrderId = payment.OrderId,
+                    Amount = payment.Amount,
+                    PaymentMethod = payment.PaymentMethod,
+                    PaymentStatus = payment.PaymentStatus,
+                    PaymentRequestId = payment.PaymentRequestId ?? "",
+                    Currency = payment.Currency,
+                    TransactionId = payment.TransactionId,
+                    PaidAt = payment.PaidAt,
+                    FailedAt = payment.FailedAt,
+                    CreatedAt = payment.CreatedAt,
+                    UpdatedAt = payment.UpdatedAt
+                } : new OrderPaymentDto()
+        };
     }
 }
