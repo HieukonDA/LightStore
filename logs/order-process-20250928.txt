@@ -23,3 +23,115 @@
 [2025-09-28 11:13:33.392] [INF] Inventory commit completed for OrderId: 75
 [2025-09-28 11:13:33.421] [INF] Payment c2dc1009-a731-4995-af7f-5f890515c6bf updated to paid
 [2025-09-28 11:13:33.422] [INF] Successfully processed Momo IPN for RequestId 0a4abc24-7778-4463-abc3-93ea9bf1d3b9, OrderInfo = c2dc1009-a731-4995-af7f-5f890515c6bf, Success = true
+[2025-09-28 13:04:38.531] [INF] === ORDER PROCESS: PAYMENT CREATE ====
+[2025-09-28 13:04:38.531] [INF] Creating payment for OrderId: 76, Amount: 120000, Method: momo
+[2025-09-28 13:04:38.531] [INF] Generated PaymentRequestId: 9cb5b0d2-5764-4d24-951c-03bb45cef8c3
+[2025-09-28 13:04:38.531] [INF] === ORDER PROCESS: PAYMENT MOMO CALL ====
+[2025-09-28 13:04:38.531] [INF] Calling MoMo API with OrderInfo (PaymentRequestId): 9cb5b0d2-5764-4d24-951c-03bb45cef8c3
+[2025-09-28 13:04:38.531] [INF] === ORDER PROCESS: PAYMENT MOMO SERVICE ====
+[2025-09-28 13:04:48.819] [INF] === ORDER PROCESS: PAYMENT MOMO CALLBACK ====
+[2025-09-28 13:04:48.819] [INF] IPN Details - OrderId: 1759039478531, Amount: 120000, ResultCode: 1006, RequestId: bb342e06-4a82-4ece-accb-8944cb582422, TransId: 1759039489223
+[2025-09-28 13:04:48.819] [INF] IPN OrderInfo (PaymentRequestId): 9cb5b0d2-5764-4d24-951c-03bb45cef8c3
+[2025-09-28 13:04:48.819] [INF] IPN ID Mapping - MoMoOrderId: 1759039478531, MoMoRequestId: bb342e06-4a82-4ece-accb-8944cb582422, OrderInfo: 9cb5b0d2-5764-4d24-951c-03bb45cef8c3
+[2025-09-28 13:04:48.819] [INF] Payment result: Success=false, ResultCode=1006
+[2025-09-28 13:04:48.819] [INF] === ORDER PROCESS: PAYMENT RESULT HANDLING ====
+[2025-09-28 13:04:48.819] [INF] HandlePaymentResult - PaymentRequestId: 9cb5b0d2-5764-4d24-951c-03bb45cef8c3, Success: false, TransactionId: 1759039489223
+[2025-09-28 13:04:48.830] [INF] Found payment record - OrderId: 76, Amount: 120000.00, Status: pending
+[2025-09-28 13:04:52.407] [INF] Payment 9cb5b0d2-5764-4d24-951c-03bb45cef8c3 updated to failed
+[2025-09-28 13:04:52.407] [INF] Successfully processed Momo IPN for RequestId bb342e06-4a82-4ece-accb-8944cb582422, OrderInfo = 9cb5b0d2-5764-4d24-951c-03bb45cef8c3, Success = false
+[2025-09-28 13:07:37.317] [INF] === ORDER PROCESS: PAYMENT CREATE ====
+[2025-09-28 13:07:37.317] [INF] Creating payment for OrderId: 77, Amount: 120000, Method: momo
+[2025-09-28 13:07:37.317] [INF] Generated PaymentRequestId: 5eec98d9-6504-4831-aa57-e15bec07224a
+[2025-09-28 13:07:37.317] [INF] === ORDER PROCESS: PAYMENT MOMO CALL ====
+[2025-09-28 13:07:37.317] [INF] Calling MoMo API with OrderInfo (PaymentRequestId): 5eec98d9-6504-4831-aa57-e15bec07224a
+[2025-09-28 13:07:37.317] [INF] === ORDER PROCESS: PAYMENT MOMO SERVICE ====
+[2025-09-28 13:11:26.505] [INF] === ORDER PROCESS: PAYMENT MOMO CALLBACK ====
+[2025-09-28 13:11:26.505] [INF] IPN Details - OrderId: 1759039657317, Amount: 120000, ResultCode: 1006, RequestId: d0f6fa59-b569-4d1b-b1c7-ae0dda6b7ade, TransId: 1759039679865
+[2025-09-28 13:11:26.505] [INF] IPN OrderInfo (PaymentRequestId): 5eec98d9-6504-4831-aa57-e15bec07224a
+[2025-09-28 13:11:26.505] [INF] IPN ID Mapping - MoMoOrderId: 1759039657317, MoMoRequestId: d0f6fa59-b569-4d1b-b1c7-ae0dda6b7ade, OrderInfo: 5eec98d9-6504-4831-aa57-e15bec07224a
+[2025-09-28 13:11:26.505] [INF] Payment result: Success=false, ResultCode=1006
+[2025-09-28 13:11:26.505] [INF] === ORDER PROCESS: PAYMENT RESULT HANDLING ====
+[2025-09-28 13:11:26.505] [INF] HandlePaymentResult - PaymentRequestId: 5eec98d9-6504-4831-aa57-e15bec07224a, Success: false, TransactionId: 1759039679865
+[2025-09-28 13:11:26.515] [INF] Found payment record - OrderId: 77, Amount: 120000.00, Status: pending
+[2025-09-28 13:11:29.698] [INF] Payment 5eec98d9-6504-4831-aa57-e15bec07224a updated to failed
+[2025-09-28 13:11:29.698] [INF] Successfully processed Momo IPN for RequestId d0f6fa59-b569-4d1b-b1c7-ae0dda6b7ade, OrderInfo = 5eec98d9-6504-4831-aa57-e15bec07224a, Success = false
+[2025-09-28 13:16:10.599] [INF] Manual test commit for OrderId: TheLightStore.DTOs.Orders.OrderCreateDto
+[2025-09-28 13:16:11.230] [INF] === ORDER PROCESS: PAYMENT CREATE ====
+[2025-09-28 13:16:11.231] [INF] Creating payment for OrderId: 78, Amount: 120000, Method: momo
+[2025-09-28 13:16:11.233] [INF] Generated PaymentRequestId: 37329936-f5f4-4ce6-aa46-3a853cef9522
+[2025-09-28 13:16:11.233] [INF] === ORDER PROCESS: PAYMENT MOMO CALL ====
+[2025-09-28 13:16:11.233] [INF] Calling MoMo API with OrderInfo (PaymentRequestId): 37329936-f5f4-4ce6-aa46-3a853cef9522
+[2025-09-28 13:16:11.239] [INF] === ORDER PROCESS: PAYMENT MOMO SERVICE ====
+[2025-09-28 13:16:21.081] [INF] === ORDER PROCESS: PAYMENT MOMO CALLBACK ====
+[2025-09-28 13:16:21.081] [INF] IPN Details - OrderId: 1759040171239, Amount: 120000, ResultCode: 1006, RequestId: ef84c655-1417-470c-bb40-3178cd594115, TransId: 1759040181337
+[2025-09-28 13:16:21.081] [INF] IPN OrderInfo (PaymentRequestId): 37329936-f5f4-4ce6-aa46-3a853cef9522
+[2025-09-28 13:16:21.082] [INF] IPN ID Mapping - MoMoOrderId: 1759040171239, MoMoRequestId: ef84c655-1417-470c-bb40-3178cd594115, OrderInfo: 37329936-f5f4-4ce6-aa46-3a853cef9522
+[2025-09-28 13:16:21.083] [INF] Payment result: Success=false, ResultCode=1006
+[2025-09-28 13:16:21.084] [INF] === ORDER PROCESS: PAYMENT RESULT HANDLING ====
+[2025-09-28 13:16:21.085] [INF] HandlePaymentResult - PaymentRequestId: 37329936-f5f4-4ce6-aa46-3a853cef9522, Success: false, TransactionId: 1759040181337
+[2025-09-28 13:16:21.105] [INF] Found payment record - OrderId: 78, Amount: 120000.00, Status: pending
+[2025-09-28 13:16:24.393] [INF] Payment 37329936-f5f4-4ce6-aa46-3a853cef9522 updated to failed
+[2025-09-28 13:16:24.397] [INF] Successfully processed Momo IPN for RequestId ef84c655-1417-470c-bb40-3178cd594115, OrderInfo = 37329936-f5f4-4ce6-aa46-3a853cef9522, Success = false
+[2025-09-28 13:22:06.752] [INF] Address order: TheLightStore.DTOs.Orders.OrderAddressCreateDto
+[2025-09-28 13:22:07.767] [INF] === ORDER PROCESS: PAYMENT CREATE ====
+[2025-09-28 13:22:07.769] [INF] Creating payment for OrderId: 79, Amount: 160000, Method: momo
+[2025-09-28 13:22:07.770] [INF] Generated PaymentRequestId: 79df7c94-2907-493f-84fe-f66e994d0338
+[2025-09-28 13:22:07.771] [INF] === ORDER PROCESS: PAYMENT MOMO CALL ====
+[2025-09-28 13:22:07.771] [INF] Calling MoMo API with OrderInfo (PaymentRequestId): 79df7c94-2907-493f-84fe-f66e994d0338
+[2025-09-28 13:22:07.778] [INF] === ORDER PROCESS: PAYMENT MOMO SERVICE ====
+[2025-09-28 13:22:19.843] [INF] === ORDER PROCESS: PAYMENT MOMO CALLBACK ====
+[2025-09-28 13:22:19.843] [INF] IPN Details - OrderId: 1759040527778, Amount: 160000, ResultCode: 1006, RequestId: d840766f-b75c-4aea-acf8-ba2248bde000, TransId: 1759040540221
+[2025-09-28 13:22:19.844] [INF] IPN OrderInfo (PaymentRequestId): 79df7c94-2907-493f-84fe-f66e994d0338
+[2025-09-28 13:22:19.844] [INF] IPN ID Mapping - MoMoOrderId: 1759040527778, MoMoRequestId: d840766f-b75c-4aea-acf8-ba2248bde000, OrderInfo: 79df7c94-2907-493f-84fe-f66e994d0338
+[2025-09-28 13:22:19.846] [INF] Payment result: Success=false, ResultCode=1006
+[2025-09-28 13:22:19.853] [INF] === ORDER PROCESS: PAYMENT RESULT HANDLING ====
+[2025-09-28 13:22:19.854] [INF] HandlePaymentResult - PaymentRequestId: 79df7c94-2907-493f-84fe-f66e994d0338, Success: false, TransactionId: 1759040540221
+[2025-09-28 13:22:19.874] [INF] Found payment record - OrderId: 79, Amount: 160000.00, Status: pending
+[2025-09-28 13:22:23.121] [INF] Payment 79df7c94-2907-493f-84fe-f66e994d0338 updated to failed
+[2025-09-28 13:22:23.121] [INF] Successfully processed Momo IPN for RequestId d840766f-b75c-4aea-acf8-ba2248bde000, OrderInfo = 79df7c94-2907-493f-84fe-f66e994d0338, Success = false
+[2025-09-28 13:25:25.500] [INF] === ORDER PROCESS: CREATE ORDER REQUEST ===
+[2025-09-28 13:25:25.533] [INF] ORDER PROCESS: Full OrderCreateDto: {"UserId":31,"CustomerName":"phương","CustomerEmail":"vudangdiapolos@gmail.com","CustomerPhone":"0354247800","CustomerNotes":"","ShippingCost":0,"TaxAmount":0,"DiscountAmount":0,"PaymentMethod":"momo","Items":[{"ProductId":13,"VariantId":null,"Quantity":1,"UnitPrice":160000,"ProductName":"Đèn âm trần LED 10W","ProductSku":"","VariantName":null,"ProductAttributes":null,"$type":"OrderItemCreateDto"}],"ShippingAddress":{"FullName":"phương","AddressLine1":"quang trung","AddressLine2":"","City":"Thành phố Hồ Chí Minh","District":"Quận Gò Vấp","Ward":"Phường 10","PostalCode":"70000","PhoneNumber":"0354247800","$type":"OrderAddressCreateDto"},"$type":"OrderCreateDto"}
+[2025-09-28 13:25:25.538] [INF] ORDER PROCESS: Customer Info - UserId: 31, Name: phương, Email: vudangdiapolos@gmail.com, Phone: 0354247800
+[2025-09-28 13:25:25.538] [INF] ORDER PROCESS: Shipping Address - {"FullName":"phương","AddressLine1":"quang trung","AddressLine2":"","City":"Thành phố Hồ Chí Minh","District":"Quận Gò Vấp","Ward":"Phường 10","PostalCode":"70000","PhoneNumber":"0354247800","$type":"OrderAddressCreateDto"}
+[2025-09-28 13:25:25.539] [INF] ORDER PROCESS: Items count: 1
+[2025-09-28 13:25:25.539] [INF] ORDER PROCESS: Item - ProductId: 13, Quantity: 1, UnitPrice: 160000
+[2025-09-28 13:25:26.457] [INF] === ORDER PROCESS: PAYMENT CREATE ====
+[2025-09-28 13:25:26.458] [INF] Creating payment for OrderId: 80, Amount: 160000, Method: momo
+[2025-09-28 13:25:26.458] [INF] Generated PaymentRequestId: 532d9ab8-9700-4cf2-a0be-ae8d45ef6216
+[2025-09-28 13:25:26.460] [INF] === ORDER PROCESS: PAYMENT MOMO CALL ====
+[2025-09-28 13:25:26.461] [INF] Calling MoMo API with OrderInfo (PaymentRequestId): 532d9ab8-9700-4cf2-a0be-ae8d45ef6216
+[2025-09-28 13:25:26.468] [INF] === ORDER PROCESS: PAYMENT MOMO SERVICE ====
+[2025-09-28 13:29:02.447] [INF] === ORDER PROCESS: PAYMENT MOMO CALLBACK ====
+[2025-09-28 13:29:02.447] [INF] IPN Details - OrderId: 1759040726468, Amount: 160000, ResultCode: 1006, RequestId: 26227667-09c5-4323-a067-8113f54e1e3c, TransId: 1759040735789
+[2025-09-28 13:29:02.448] [INF] IPN OrderInfo (PaymentRequestId): 532d9ab8-9700-4cf2-a0be-ae8d45ef6216
+[2025-09-28 13:29:02.448] [INF] IPN ID Mapping - MoMoOrderId: 1759040726468, MoMoRequestId: 26227667-09c5-4323-a067-8113f54e1e3c, OrderInfo: 532d9ab8-9700-4cf2-a0be-ae8d45ef6216
+[2025-09-28 13:29:02.451] [INF] Payment result: Success=false, ResultCode=1006
+[2025-09-28 13:29:02.457] [INF] === ORDER PROCESS: PAYMENT RESULT HANDLING ====
+[2025-09-28 13:29:02.458] [INF] HandlePaymentResult - PaymentRequestId: 532d9ab8-9700-4cf2-a0be-ae8d45ef6216, Success: false, TransactionId: 1759040735789
+[2025-09-28 13:29:02.470] [INF] Found payment record - OrderId: 80, Amount: 160000.00, Status: pending
+[2025-09-28 13:29:05.747] [INF] Payment 532d9ab8-9700-4cf2-a0be-ae8d45ef6216 updated to failed
+[2025-09-28 13:29:05.748] [INF] Successfully processed Momo IPN for RequestId 26227667-09c5-4323-a067-8113f54e1e3c, OrderInfo = 532d9ab8-9700-4cf2-a0be-ae8d45ef6216, Success = false
+[2025-09-28 13:35:20.823] [INF] === ORDER PROCESS: CREATE ORDER REQUEST ===
+[2025-09-28 13:35:20.862] [INF] ORDER PROCESS: Full OrderCreateDto: {"UserId":31,"CustomerName":"phương","CustomerEmail":"vudangdiapolos@gmail.com","CustomerPhone":"0354247800","CustomerNotes":"","ShippingCost":0,"TaxAmount":0,"DiscountAmount":0,"PaymentMethod":"momo","Items":[{"ProductId":13,"VariantId":null,"Quantity":1,"UnitPrice":160000,"ProductName":"Đèn âm trần LED 10W","ProductSku":"","VariantName":null,"ProductAttributes":null,"$type":"OrderItemCreateDto"}],"ShippingAddress":{"FullName":"phương","AddressLine1":"quang trung","AddressLine2":"","City":"Thành phố Hồ Chí Minh","District":"Quận Gò Vấp","Ward":"Phường 10","PostalCode":"70000","PhoneNumber":"0354247800","$type":"OrderAddressCreateDto"},"$type":"OrderCreateDto"}
+[2025-09-28 13:35:20.872] [INF] ORDER PROCESS: Customer Info - UserId: 31, Name: phương, Email: vudangdiapolos@gmail.com, Phone: 0354247800
+[2025-09-28 13:35:20.872] [INF] ORDER PROCESS: Shipping Address - {"FullName":"phương","AddressLine1":"quang trung","AddressLine2":"","City":"Thành phố Hồ Chí Minh","District":"Quận Gò Vấp","Ward":"Phường 10","PostalCode":"70000","PhoneNumber":"0354247800","$type":"OrderAddressCreateDto"}
+[2025-09-28 13:35:20.873] [INF] ORDER PROCESS: Items count: 1
+[2025-09-28 13:35:20.874] [INF] ORDER PROCESS: Item - ProductId: 13, Quantity: 1, UnitPrice: 160000
+[2025-09-28 13:35:20.882] [INF] ORDER PROCESS: Creating order with 1 addresses
+[2025-09-28 13:35:20.883] [INF] ORDER PROCESS: Shipping Address - FullName: phương, Phone: 0354247800, Address: quang trung
+[2025-09-28 13:35:21.068] [INF] === ORDER PROCESS: PAYMENT CREATE ====
+[2025-09-28 13:35:21.069] [INF] Creating payment for OrderId: 81, Amount: 160000, Method: momo
+[2025-09-28 13:35:21.069] [INF] Generated PaymentRequestId: a20fb92a-a5a8-4d22-a324-99e174c92929
+[2025-09-28 13:35:21.069] [INF] === ORDER PROCESS: PAYMENT MOMO CALL ====
+[2025-09-28 13:35:21.069] [INF] Calling MoMo API with OrderInfo (PaymentRequestId): a20fb92a-a5a8-4d22-a324-99e174c92929
+[2025-09-28 13:35:21.077] [INF] === ORDER PROCESS: PAYMENT MOMO SERVICE ====
+[2025-09-28 13:36:10.769] [INF] === ORDER PROCESS: PAYMENT MOMO CALLBACK ====
+[2025-09-28 13:36:10.769] [INF] IPN Details - OrderId: 1759041321076, Amount: 160000, ResultCode: 1006, RequestId: 9cc39379-15ac-47b7-acd7-0b31a82853f0, TransId: 1759041371149
+[2025-09-28 13:36:10.770] [INF] IPN OrderInfo (PaymentRequestId): a20fb92a-a5a8-4d22-a324-99e174c92929
+[2025-09-28 13:36:10.770] [INF] IPN ID Mapping - MoMoOrderId: 1759041321076, MoMoRequestId: 9cc39379-15ac-47b7-acd7-0b31a82853f0, OrderInfo: a20fb92a-a5a8-4d22-a324-99e174c92929
+[2025-09-28 13:36:10.771] [INF] Payment result: Success=false, ResultCode=1006
+[2025-09-28 13:36:10.774] [INF] === ORDER PROCESS: PAYMENT RESULT HANDLING ====
+[2025-09-28 13:36:10.775] [INF] HandlePaymentResult - PaymentRequestId: a20fb92a-a5a8-4d22-a324-99e174c92929, Success: false, TransactionId: 1759041371149
+[2025-09-28 13:36:10.803] [INF] Found payment record - OrderId: 81, Amount: 160000.00, Status: pending
+[2025-09-28 13:36:13.905] [INF] Payment a20fb92a-a5a8-4d22-a324-99e174c92929 updated to failed
+[2025-09-28 13:36:13.906] [INF] Successfully processed Momo IPN for RequestId 9cc39379-15ac-47b7-acd7-0b31a82853f0, OrderInfo = a20fb92a-a5a8-4d22-a324-99e174c92929, Success = false

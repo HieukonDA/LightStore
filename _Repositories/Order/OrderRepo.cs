@@ -68,6 +68,7 @@ public class OrderRepo : IOrderRepo
         return await _context.Orders
             .Include(o => o.OrderItems)
             .Include(o => o.OrderPayments)
+            .Include(o => o.OrderAddresses)
             .FirstOrDefaultAsync(o => o.Id == id, ct);
     }
 
@@ -76,6 +77,7 @@ public class OrderRepo : IOrderRepo
         return await _context.Orders
             .Include(o => o.OrderItems)
             .Include(o => o.OrderPayments)
+            .Include(o => o.OrderAddresses)
             .FirstOrDefaultAsync(o => o.OrderNumber == orderNumber, ct);
     }
 
@@ -84,6 +86,8 @@ public class OrderRepo : IOrderRepo
         return await _context.Orders
             .Where(o => o.UserId == userId)
             .Include(o => o.OrderItems)
+            .Include(o => o.OrderPayments)
+            .Include(o => o.OrderAddresses)
             .OrderByDescending(o => o.OrderDate)
             .ToListAsync(ct);
     }

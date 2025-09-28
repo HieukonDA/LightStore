@@ -11,7 +11,7 @@ public interface IOrderService
 
     Task<ServiceResult<OrderDto?>> GetOrderByIdAsync(int orderId, CancellationToken ct = default);
     Task<ServiceResult<OrderDto?>> GetOrderByOrderNumberAsync(string orderNumber, CancellationToken ct = default);
-    Task<ServiceResult<IEnumerable<Order>>> GetOrdersByUserAsync(int userId, CancellationToken ct = default);
+    Task<ServiceResult<IEnumerable<OrderDto>>> GetOrdersByUserAsync(int userId, CancellationToken ct = default);
 
     // State transitions
     Task<ServiceResult<bool>> ConfirmOrderAsync(int orderId, string? adminNotes = null, CancellationToken ct = default);

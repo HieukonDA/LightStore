@@ -3,6 +3,7 @@ using TheLightStore.DTOs.Orders;
 using TheLightStore.Interfaces.Notifications;
 using TheLightStore.Interfaces.Orders;
 using TheLightStore.Interfaces.Payment;
+using Serilog;
 
 namespace TheLightStore.Services.Orders;
 
@@ -15,6 +16,7 @@ public class OrderService : IOrderService
     private readonly IPaymentService _paymentService;
     private readonly INotificationService _notificationService;
     private readonly ILogger<OrderService> _logger;
+    private static readonly Serilog.ILogger OrderLogger = Log.ForContext("OrderProcess", true);
 
     public OrderService(
         IOrderRepo orderRepo,
@@ -94,8 +96,32 @@ public class OrderService : IOrderService
                     VariantName = i.VariantName,
                     ProductAttributes = i.ProductAttributes
                 }).ToList(),
-                OrderPayments = new List<OrderPayment>()
+                OrderPayments = new List<OrderPayment>(),
+                OrderAddresses = new List<OrderAddress>
+                {
+                    new OrderAddress
+                    {
+                        AddressType = "shipping",
+                        RecipientName = dto.ShippingAddress.FullName,
+                        Phone = dto.ShippingAddress.PhoneNumber,
+                        AddressLine1 = dto.ShippingAddress.AddressLine1,
+                        AddressLine2 = dto.ShippingAddress.AddressLine2,
+                        Ward = dto.ShippingAddress.Ward,
+                        District = dto.ShippingAddress.District,
+                        City = dto.ShippingAddress.City,
+                        Province = string.Empty, // OrderAddressCreateDto không có Province
+                        PostalCode = dto.ShippingAddress.PostalCode
+                    }
+                }
             };
+
+            OrderLogger.Information("ORDER PROCESS: Creating order with {AddressCount} addresses", order.OrderAddresses.Count);
+            if (order.OrderAddresses.Any())
+            {
+                var shippingAddr = order.OrderAddresses.First();
+                OrderLogger.Information("ORDER PROCESS: Shipping Address - FullName: {FullName}, Phone: {Phone}, Address: {Address}", 
+                    shippingAddr.RecipientName, shippingAddr.Phone, shippingAddr.AddressLine1);
+            }
 
             await _orderRepo.AddAsync(order, ct);
             await _orderRepo.SaveChangesAsync(ct);
@@ -230,31 +256,34 @@ public class OrderService : IOrderService
         }
     }
 
-    public async Task<ServiceResult<IEnumerable<Order>>> GetOrdersByUserAsync(int userId, CancellationToken ct = default)
+    public async Task<ServiceResult<IEnumerable<OrderDto>>> GetOrdersByUserAsync(int userId, CancellationToken ct = default)
     {
         try
         {
             if (userId <= 0)
             {
                 Console.WriteLine("[ERROR] Invalid userId");
-                return ServiceResult<IEnumerable<Order>>.FailureResult("Invalid userId", new List<string> { "userId must be greater than 0" });
+                return ServiceResult<IEnumerable<OrderDto>>.FailureResult("Invalid userId", new List<string> { "userId must be greater than 0" });
             }
 
             var orders = await _orderRepo.GetByUserIdAsync(userId, ct);
             if (orders == null || !orders.Any())
             {
                 Console.WriteLine("[ERROR] No orders found for user");
-                return ServiceResult<IEnumerable<Order>>.FailureResult("No orders found for user", new List<string> { $"User {userId} has no orders" });
+                return ServiceResult<IEnumerable<OrderDto>>.FailureResult("No orders found for user", new List<string> { $"User {userId} has no orders" });
             }
 
+            // Convert entities to DTOs to avoid circular references
+            var orderDtos = orders.Select(order => MapOrderToDto(order)).ToList();
+
             Console.WriteLine("[SUCCESS] Orders retrieved successfully");
-            return ServiceResult<IEnumerable<Order>>.SuccessResult(orders, "Orders retrieved successfully");
+            return ServiceResult<IEnumerable<OrderDto>>.SuccessResult(orderDtos, "Orders retrieved successfully");
         }
         catch (Exception ex)
         {
             Console.WriteLine($"[EXCEPTION] {ex.Message}");
             _logger.LogError(ex, "Error getting orders for user {UserId}", userId);
-            return ServiceResult<IEnumerable<Order>>.FailureResult("Failed to get orders", new List<string> { ex.Message });
+            return ServiceResult<IEnumerable<OrderDto>>.FailureResult("Failed to get orders", new List<string> { ex.Message });
         }
     }
 

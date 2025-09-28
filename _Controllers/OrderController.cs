@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Serilog;
 using TheLightStore.DTOs.Orders;
 using TheLightStore.Interfaces.Orders;
 
@@ -11,6 +12,7 @@ public class OrderController : ControllerBase
 {
     private readonly IOrderService _orderService;
     private readonly ILogger<OrderController> _logger;
+    private static readonly Serilog.ILogger OrderLogger = Log.ForContext("OrderProcess", true);
 
     public OrderController(IOrderService orderService, ILogger<OrderController> logger)
     {
@@ -52,6 +54,36 @@ public class OrderController : ControllerBase
     {
         if (!ModelState.IsValid)
             return BadRequest(ModelState);
+
+        OrderLogger.Information("=== ORDER PROCESS: CREATE ORDER REQUEST ===");
+        OrderLogger.Information("ORDER PROCESS: Full OrderCreateDto: {@OrderRequest}", request);
+        
+        // Log chi tiết từng phần
+        OrderLogger.Information("ORDER PROCESS: Customer Info - UserId: {UserId}, Name: {Name}, Email: {Email}, Phone: {Phone}", 
+            request.UserId, request.CustomerName, request.CustomerEmail, request.CustomerPhone);
+        
+        if (request.ShippingAddress != null)
+        {
+            OrderLogger.Information("ORDER PROCESS: Shipping Address - {@ShippingAddress}", request.ShippingAddress);
+        }
+        else
+        {
+            OrderLogger.Warning("ORDER PROCESS: ShippingAddress is NULL!");
+        }
+        
+        if (request.Items != null && request.Items.Any())
+        {
+            OrderLogger.Information("ORDER PROCESS: Items count: {Count}", request.Items.Count);
+            foreach (var item in request.Items)
+            {
+                OrderLogger.Information("ORDER PROCESS: Item - ProductId: {ProductId}, Quantity: {Quantity}, UnitPrice: {Price}", 
+                    item.ProductId, item.Quantity, item.UnitPrice);
+            }
+        }
+        else
+        {
+            OrderLogger.Warning("ORDER PROCESS: Items is NULL or empty!");
+        }
 
         var result = await _orderService.CreateOrderAsync(request, ct);
 
