@@ -1,6 +1,7 @@
 
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Extensions.FileProviders;
+using Serilog;
 
 using TheLightStore.Interfaces.Inventory;
 using TheLightStore.Interfaces.Images;
@@ -26,6 +27,28 @@ using TheLightStore.Services.Search;
 using TheLightStore.Hubs;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Configure Serilog
+Log.Logger = new LoggerConfiguration()
+    .MinimumLevel.Information()
+    .MinimumLevel.Override("Microsoft", Serilog.Events.LogEventLevel.Warning)
+    .Filter.ByIncludingOnly(logEvent => 
+        logEvent.MessageTemplate.Text.Contains("ORDER PROCESS") ||
+        logEvent.Properties.ContainsKey("OrderProcess"))
+    .WriteTo.File(
+        path: "logs/order-process-.txt",
+        rollingInterval: RollingInterval.Day,
+        retainedFileCountLimit: 7,
+        outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss.fff}] [{Level:u3}] {Message:lj}{NewLine}{Exception}"
+    )
+    .CreateLogger();
+
+builder.Host.UseSerilog();
+
+// Configure Default Logging for other logs
+builder.Logging.AddConsole();
+builder.Logging.AddDebug();
+builder.Logging.SetMinimumLevel(LogLevel.Information);
 
 // Services
 builder.Services.AddControllers();
@@ -253,4 +276,16 @@ app.MapControllers();       // 5. Map controllers
 // SignalR Hub
 app.MapHub<NotificationHub>("/notificationHub");
 
-app.Run();
+try
+{
+    Log.Information("Starting web application");
+    app.Run();
+}
+catch (Exception ex)
+{
+    Log.Fatal(ex, "Application terminated unexpectedly");
+}
+finally
+{
+    Log.CloseAndFlush();
+}

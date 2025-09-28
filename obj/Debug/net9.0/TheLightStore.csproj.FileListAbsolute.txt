@@ -172,3 +172,12 @@ D:\LightStore\TheLightStore\obj\Debug\net9.0\TheLightStore.pdb
 D:\LightStore\TheLightStore\obj\Debug\net9.0\TheLightStore.genruntimeconfig.cache
 D:\LightStore\TheLightStore\obj\Debug\net9.0\ref\TheLightStore.dll
 D:\LightStore\TheLightStore\bin\Debug\net9.0\TheLightStore.staticwebassets.runtime.json
+D:\LightStore\TheLightStore\bin\Debug\net9.0\Serilog.dll
+D:\LightStore\TheLightStore\bin\Debug\net9.0\Serilog.AspNetCore.dll
+D:\LightStore\TheLightStore\bin\Debug\net9.0\Serilog.Extensions.Hosting.dll
+D:\LightStore\TheLightStore\bin\Debug\net9.0\Serilog.Extensions.Logging.dll
+D:\LightStore\TheLightStore\bin\Debug\net9.0\Serilog.Formatting.Compact.dll
+D:\LightStore\TheLightStore\bin\Debug\net9.0\Serilog.Settings.Configuration.dll
+D:\LightStore\TheLightStore\bin\Debug\net9.0\Serilog.Sinks.Console.dll
+D:\LightStore\TheLightStore\bin\Debug\net9.0\Serilog.Sinks.Debug.dll
+D:\LightStore\TheLightStore\bin\Debug\net9.0\Serilog.Sinks.File.dll

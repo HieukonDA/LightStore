@@ -2,6 +2,7 @@ using TheLightStore.Dtos.Orders;
 using TheLightStore.Interfaces.Notifications;
 using TheLightStore.Interfaces.Orders;
 using TheLightStore.Interfaces.Payment;
+using Serilog;
 
 namespace TheLightStore.Services.Payment;
 
@@ -14,6 +15,7 @@ public class PaymentService : IPaymentService
     private readonly ILogger<PaymentService> _logger;
     private readonly IMomoService _momoService;
     private readonly IConfiguration _configuration;
+    private static readonly Serilog.ILogger OrderLogger = Log.ForContext("OrderProcess", true);
 
     public PaymentService(IPaymentRepo paymentRepo, IOrderRepo orderRepo, IInventoryService inventoryService, INotificationService notificationService, ILogger<PaymentService> logger, IMomoService momoService, IConfiguration configuration)
     {
@@ -28,13 +30,19 @@ public class PaymentService : IPaymentService
 
     public async Task<OrderPaymentDto> CreatePaymentAsync(int orderId, decimal amount, string method)
     {
+        var paymentRequestId = Guid.NewGuid().ToString();
+        
+        OrderLogger.Information("=== ORDER PROCESS: PAYMENT CREATE ====");
+        OrderLogger.Information("Creating payment for OrderId: {OrderId}, Amount: {Amount}, Method: {Method}", orderId, amount, method);
+        OrderLogger.Information("Generated PaymentRequestId: {PaymentRequestId}", paymentRequestId);
+        
         var payment = new OrderPaymentDto
         {
             OrderId = orderId,
             Amount = amount,
             PaymentMethod = method,
             PaymentStatus = "pending",
-            PaymentRequestId = Guid.NewGuid().ToString(),
+            PaymentRequestId = paymentRequestId,
             Currency = "VND",
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
@@ -45,6 +53,9 @@ public class PaymentService : IPaymentService
             try
             {
                 // Gọi Momo
+                OrderLogger.Information("=== ORDER PROCESS: PAYMENT MOMO CALL ====");
+                OrderLogger.Information("Calling MoMo API with OrderInfo (PaymentRequestId): {OrderInfo}", payment.PaymentRequestId);
+                
                 var momoResponse = await _momoService.CreatePaymentAsync(new MomoOnetimePaymentRequest
                 {
                     OrderInfo = payment.PaymentRequestId.ToString(),
@@ -53,6 +64,8 @@ public class PaymentService : IPaymentService
                     IpnUrl = _configuration["MomoAPI:IpnUrl"]!,
                     ExtraData = null
                 });
+                
+                _logger.LogInformation("MoMo API Response - ResultCode: {ResultCode}, PayUrl: {PayUrl}", momoResponse.ResultCode, momoResponse.PayUrl);
 
                 if (momoResponse.ResultCode != 0)
                 {
@@ -99,8 +112,21 @@ public class PaymentService : IPaymentService
 
     public async Task HandlePaymentResultAsync(string paymentRequestId, bool isSuccess, string? transactionId = null)
     {
-        var payment = await _paymentRepo.GetByRequestIdAsync(paymentRequestId)
-                      ?? throw new InvalidOperationException($"Payment request {paymentRequestId} not found");
+        OrderLogger.Information("=== ORDER PROCESS: PAYMENT RESULT HANDLING ====");
+        OrderLogger.Information("HandlePaymentResult - PaymentRequestId: {PaymentRequestId}, Success: {IsSuccess}, TransactionId: {TransactionId}", 
+            paymentRequestId, isSuccess, transactionId);
+            
+        var payment = await _paymentRepo.GetByRequestIdAsync(paymentRequestId);
+        
+        if (payment == null)
+        {
+            OrderLogger.Error("=== ORDER PROCESS: PAYMENT NOT FOUND ====");
+            _logger.LogError("Payment not found for PaymentRequestId: {PaymentRequestId}", paymentRequestId);
+            throw new InvalidOperationException($"Payment request {paymentRequestId} not found");
+        }
+        
+        OrderLogger.Information("Found payment record - OrderId: {OrderId}, Amount: {Amount}, Status: {Status}", 
+            payment.OrderId, payment.Amount, payment.PaymentStatus);
 
         if (isSuccess)
         {
@@ -112,7 +138,14 @@ public class PaymentService : IPaymentService
             var order = await _orderRepo.GetByIdAsync(payment.OrderId); // Giả sử OrderRepo được inject
             if (order != null)
             {
+                OrderLogger.Information("=== ORDER PROCESS: PAYMENT SUCCESS PROCESSING ====");
+                OrderLogger.Information("Processing successful payment for OrderId: {OrderId}, OrderNumber: {OrderNumber}", 
+                    order.Id, order.OrderNumber);
+                OrderLogger.Information("About to commit inventory reservations for OrderId: {OrderId}", order.Id);
+                
                 await _inventoryService.CommitReservationsAsync(order.Id.ToString());
+                
+                OrderLogger.Information("Inventory commit completed for OrderId: {OrderId}", order.Id);
                 order.OrderStatus = OrderStatus.Confirmed;
                 await _orderRepo.UpdateAsync(order);
                 await _orderRepo.SaveChangesAsync();
@@ -158,7 +191,7 @@ public class PaymentService : IPaymentService
         await _paymentRepo.UpdateAsync(payment);
         await _paymentRepo.SaveChangesAsync();
 
-        _logger.LogInformation("Payment {PaymentRequestId} updated to {Status}", payment.PaymentRequestId, payment.PaymentStatus);
+        OrderLogger.Information("Payment {PaymentRequestId} updated to {Status}", payment.PaymentRequestId, payment.PaymentStatus);
     
     }
 

@@ -1,5 +1,6 @@
 using TheLightStore.Interfaces.Orders;
 using TheLightStore.Interfaces.Payment;
+using Serilog;
 
 namespace TheLightStore.Controllers.Checkout;
 
@@ -10,17 +11,21 @@ public class CheckoutController : ControllerBase
     private readonly IMomoService _momoService;
     private readonly IOrderRepo _orderRepo;
     private readonly IPaymentService _paymentService;
+    private readonly IOrderService _orderService;
     private readonly ILogger<CheckoutController> _logger;
+    private static readonly Serilog.ILogger OrderLogger = Log.ForContext("OrderProcess", true);
 
     public CheckoutController(
         IMomoService momoService,
         IOrderRepo orderRepo,
         IPaymentService paymentService,
+        IOrderService orderService,
         ILogger<CheckoutController> logger)
     {
         _momoService = momoService;
         _orderRepo = orderRepo;
         _paymentService = paymentService;
+        _orderService = orderService;
         _logger = logger;
     }
 
@@ -48,8 +53,12 @@ public class CheckoutController : ControllerBase
                 return BadRequest(new { message = "Invalid IPN data" });
             }
 
-            _logger.LogInformation("IPN Details - OrderId: {OrderId}, Amount: {Amount}, ResultCode: {ResultCode}, RequestId: {RequestId}, TransId: {TransId}",
+            OrderLogger.Information("=== ORDER PROCESS: PAYMENT MOMO CALLBACK ====");
+            OrderLogger.Information("IPN Details - OrderId: {OrderId}, Amount: {Amount}, ResultCode: {ResultCode}, RequestId: {RequestId}, TransId: {TransId}",
                 ipn.OrderId, ipn.Amount, ipn.ResultCode, ipn.RequestId, ipn.TransId);
+            OrderLogger.Information("IPN OrderInfo (PaymentRequestId): {OrderInfo}", ipn.OrderInfo);
+            OrderLogger.Information("IPN ID Mapping - MoMoOrderId: {OrderId}, MoMoRequestId: {RequestId}, OrderInfo: {OrderInfo}", 
+                ipn.OrderId, ipn.RequestId, ipn.OrderInfo);
 
             // 1. Validate chữ ký
             if (!_momoService.ValidateSignature(ipn))
@@ -61,12 +70,12 @@ public class CheckoutController : ControllerBase
             _logger.LogInformation("Signature validation passed for RequestId: {RequestId}", ipn.RequestId);
 
             bool isSuccess = ipn.ResultCode == 0;
-            _logger.LogInformation("Payment result: Success={IsSuccess}, ResultCode={ResultCode}", isSuccess, ipn.ResultCode);
+            OrderLogger.Information("Payment result: Success={IsSuccess}, ResultCode={ResultCode}", isSuccess, ipn.ResultCode);
 
             // Xử lý thành công
             await _paymentService.HandlePaymentResultAsync(ipn.OrderInfo, isSuccess, ipn.TransId.ToString());
 
-            _logger.LogInformation("Successfully processed Momo IPN for RequestId {RequestId}, OrderInfo = {OrderInfo}, Success = {IsSuccess}",
+            OrderLogger.Information("Successfully processed Momo IPN for RequestId {RequestId}, OrderInfo = {OrderInfo}, Success = {IsSuccess}",
                     ipn.RequestId, ipn.OrderInfo, isSuccess);
 
             // 4. Trả về response cho Momo
@@ -87,6 +96,51 @@ public class CheckoutController : ControllerBase
         Console.WriteLine("=== TEST IPN RECEIVED ===");
         Console.WriteLine(body);
         return Ok(new { message = "received" });
+    }
+
+    [HttpGet("test-logs")]
+    public IActionResult TestLogs()
+    {
+        OrderLogger.Information("=== ORDER PROCESS: PAYMENT TEST LOGS ====");
+        OrderLogger.Information("Testing ORDER PROCESS file logging at {Time}", DateTime.Now);
+        
+        // These regular logs won't appear in file because they don't contain ORDER PROCESS
+        _logger.LogInformation("Regular log - Test logging endpoint called at {Time}", DateTime.Now);
+        _logger.LogWarning("Regular log - This is a test warning log");
+        _logger.LogError("Regular log - This is a test error log");
+        
+        Console.WriteLine("=== CONSOLE OUTPUT TEST ===");
+        Console.WriteLine($"Console log test at {DateTime.Now}");
+        
+        return Ok(new { 
+            message = "ORDER PROCESS logs written to file. Check logs/order-process-*.txt", 
+            timestamp = DateTime.Now,
+            logLevels = new[] { "Information", "Warning", "Error" }
+        });
+    }
+
+    [HttpGet("test-commit/{orderId}")]
+    public async Task<IActionResult> TestCommitInventory(int orderId)
+    {
+        try
+        {
+            OrderLogger.Information("=== ORDER PROCESS: TEST COMMIT INVENTORY ====");
+            OrderLogger.Information("Manual test commit for OrderId: {OrderId}", orderId);
+            
+            // Sử dụng InventoryService trực tiếp để test
+            // Tôi sẽ thêm IInventoryService vào constructor
+            
+            return Ok(new { 
+                message = "Test commit logged. Check order-process log file",
+                orderId = orderId,
+                timestamp = DateTime.Now
+            });
+        }
+        catch (Exception ex)
+        {
+            OrderLogger.Error(ex, "ORDER PROCESS: Error testing commit for order {OrderId}", orderId);
+            return StatusCode(500, new { message = ex.Message });
+        }
     }
 
 
@@ -116,9 +170,29 @@ public class CheckoutController : ControllerBase
             return StatusCode(500, new { message = "Failed to create payment" });
         }
     }
-    
 
+    [HttpGet("test-stock/{productId}")]
+    public IActionResult TestStock(int productId)
+    {
+        try
+        {
+            OrderLogger.Information("ORDER PROCESS: Testing stock for ProductId: {ProductId}", productId);
+            
+            var result = new
+            {
+                ProductId = productId,
+                Message = "Check logs for detailed stock information",
+                Timestamp = DateTime.UtcNow
+            };
 
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            OrderLogger.Error(ex, "ORDER PROCESS: Error testing stock for ProductId: {ProductId}", productId);
+            return StatusCode(500, ex.Message);
+        }
+    }
 }
 
 
@@ -138,6 +212,8 @@ public class MomoIPNRequest
     public string RequestId { get; set; }
     public string OrderInfo { get; set; }
 }
+
+   
 
 
 public class CreatePaymentRequest

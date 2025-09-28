@@ -1,4 +1,5 @@
 using TheLightStore.Dtos.Product;
+using Serilog;
 
 namespace TheLightStore.Services.Inventory;
 
@@ -10,6 +11,7 @@ public class InventoryService : IInventoryService
     private readonly IInventoryLogRepo _inventoryLogRepo;
     private readonly ILogger<InventoryService> _logger;
     private readonly int _reservationTimeoutMinutes;
+    private static readonly Serilog.ILogger OrderLogger = Log.ForContext("OrderProcess", true);
 
     public InventoryService(
         IProductRepo productRepo,
@@ -214,6 +216,7 @@ public class InventoryService : IInventoryService
     public async Task CommitReservationsAsync(string orderId)
     {
         using var transaction = await _reservationRepo.BeginTransactionAsync();
+        OrderLogger.Information("ORDER PROCESS: Started transaction for committing reservations");
         try
         {
             if (!int.TryParse(orderId, out var orderIdInt))
@@ -227,6 +230,9 @@ public class InventoryService : IInventoryService
 
             foreach (var reservation in reservedItems)
             {
+                OrderLogger.Information("ORDER PROCESS: Processing reservation - ProductId: {ProductId}, VariantId: {VariantId}, Quantity: {Quantity}, Status: {Status}", 
+                    reservation.ProductId, reservation.VariantId, reservation.Quantity, reservation.Status);
+
                 // Update reservation status
                 reservation.Status = InventoryStatus.Completed;
                 await _reservationRepo.UpdateAsync(reservation);
@@ -241,11 +247,13 @@ public class InventoryService : IInventoryService
             }
 
             await _reservationRepo.SaveChangesAsync();
-            _logger.LogInformation("Committed {Count} reservations for order {OrderId}", reservedItems.Count, orderId);
+            OrderLogger.Information("ORDER PROCESS: SaveChanges completed, about to commit transaction");
+            await transaction.CommitAsync();
+            OrderLogger.Information("ORDER PROCESS: Transaction committed successfully - {Count} reservations for order {OrderId}", reservedItems.Count, orderId);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error committing reservations for order {OrderId}", orderId);
+            OrderLogger.Error(ex, "ORDER PROCESS: Error committing reservations for order {OrderId}", orderId);
             throw;
         }
     }
@@ -267,10 +275,13 @@ public class InventoryService : IInventoryService
 
             foreach (var reservation in activeReservations)
             {
+                // Check if we need to restore stock BEFORE changing status
+                bool wasCompleted = reservation.Status == InventoryStatus.Completed;
+                
                 reservation.Status = InventoryStatus.Cancelled;
                 await _reservationRepo.UpdateAsync(reservation);
 
-                if (reservation.Status == InventoryStatus.Completed)
+                if (wasCompleted)
                 {
                     await UpdateStockQuantityAsync(reservation.ProductId, reservation.VariantId, +reservation.Quantity);
                 }
@@ -378,9 +389,16 @@ public class InventoryService : IInventoryService
             var variant = await _productVariantRepo.GetByIdAsync(variantId.Value);
             if (variant?.StockQuantity.HasValue == true)
             {
+                var oldStock = variant.StockQuantity;
                 variant.StockQuantity += quantityChange;
                 variant.UpdatedAt = DateTime.UtcNow;
                 await _productVariantRepo.UpdateAsync(variant);
+                OrderLogger.Information("ORDER PROCESS: Updated variant {VariantId} stock from {OldStock} to {NewStock} (change: {Change})", 
+                    variantId, oldStock, variant.StockQuantity, quantityChange);
+            }
+            else
+            {
+                OrderLogger.Warning("ORDER PROCESS: Variant {VariantId} not found or has no stock tracking", variantId);
             }
         }
         else
@@ -388,9 +406,16 @@ public class InventoryService : IInventoryService
             var product = await _productRepo.GetByIdAsync(productId);
             if (product != null)
             {
+                var oldStock = product.StockQuantity;
                 product.StockQuantity += quantityChange;
                 product.UpdatedAt = DateTime.UtcNow;
                 await _productRepo.UpdateAsync(product);
+                OrderLogger.Information("ORDER PROCESS: Updated product {ProductId} stock from {OldStock} to {NewStock} (change: {Change})", 
+                    productId, oldStock, product.StockQuantity, quantityChange);
+            }
+            else
+            {
+                OrderLogger.Warning("ORDER PROCESS: Product {ProductId} not found", productId);
             }
         }
     }

@@ -1,0 +1,23 @@
+{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning",
+      "TheLightStore": "Information"
+    },
+    "Console": {
+      "IncludeScopes": true,
+      "LogLevel": {
+        "Default": "Information",
+        "TheLightStore": "Information"
+      }
+    },
+    "File": {
+      "Path": "logs/app-{Date}.log",
+      "LogLevel": {
+        "Default": "Information",
+        "TheLightStore": "Information"
+      }
+    }
+  }
+}

@@ -25,6 +25,11 @@ public class MomoService : IMomoService
 
         var requestId = Guid.NewGuid().ToString();
         var orderId = DateTimeOffset.Now.ToUnixTimeMilliseconds().ToString();
+        
+        _logger.LogInformation("=== ORDER PROCESS: PAYMENT MOMO SERVICE ====");
+        _logger.LogInformation("MoMo CreatePayment - Input OrderInfo (PaymentRequestId): {OrderInfo}", request.OrderInfo);
+        _logger.LogInformation("MoMo Generated - RequestId: {RequestId}, MoMoOrderId: {OrderId}", requestId, orderId);
+        _logger.LogInformation("MoMo Mapping - PaymentRequestId -> OrderInfo: {OrderInfo}", request.OrderInfo);
 
         // rawData đúng chuẩn MoMo
         var rawData =

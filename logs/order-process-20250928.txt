@@ -1,0 +1,25 @@
+[2025-09-28 11:12:19.171] [INF] === ORDER PROCESS: PAYMENT CREATE ====
+[2025-09-28 11:12:19.194] [INF] Creating payment for OrderId: 75, Amount: 120000, Method: momo
+[2025-09-28 11:12:19.196] [INF] Generated PaymentRequestId: c2dc1009-a731-4995-af7f-5f890515c6bf
+[2025-09-28 11:12:19.196] [INF] === ORDER PROCESS: PAYMENT MOMO CALL ====
+[2025-09-28 11:12:19.199] [INF] Calling MoMo API with OrderInfo (PaymentRequestId): c2dc1009-a731-4995-af7f-5f890515c6bf
+[2025-09-28 11:12:19.203] [INF] === ORDER PROCESS: PAYMENT MOMO SERVICE ====
+[2025-09-28 11:13:33.266] [INF] === ORDER PROCESS: PAYMENT MOMO CALLBACK ====
+[2025-09-28 11:13:33.266] [INF] IPN Details - OrderId: 1759032739203, Amount: 120000, ResultCode: 0, RequestId: 0a4abc24-7778-4463-abc3-93ea9bf1d3b9, TransId: 4584402216
+[2025-09-28 11:13:33.267] [INF] IPN OrderInfo (PaymentRequestId): c2dc1009-a731-4995-af7f-5f890515c6bf
+[2025-09-28 11:13:33.270] [INF] IPN ID Mapping - MoMoOrderId: 1759032739203, MoMoRequestId: 0a4abc24-7778-4463-abc3-93ea9bf1d3b9, OrderInfo: c2dc1009-a731-4995-af7f-5f890515c6bf
+[2025-09-28 11:13:33.272] [INF] Payment result: Success=true, ResultCode=0
+[2025-09-28 11:13:33.276] [INF] === ORDER PROCESS: PAYMENT RESULT HANDLING ====
+[2025-09-28 11:13:33.276] [INF] HandlePaymentResult - PaymentRequestId: c2dc1009-a731-4995-af7f-5f890515c6bf, Success: true, TransactionId: 4584402216
+[2025-09-28 11:13:33.292] [INF] Found payment record - OrderId: 75, Amount: 120000.00, Status: pending
+[2025-09-28 11:13:33.321] [INF] === ORDER PROCESS: PAYMENT SUCCESS PROCESSING ====
+[2025-09-28 11:13:33.321] [INF] Processing successful payment for OrderId: 75, OrderNumber: ORD-20250928-F81E6A
+[2025-09-28 11:13:33.321] [INF] About to commit inventory reservations for OrderId: 75
+[2025-09-28 11:13:33.325] [INF] ORDER PROCESS: Started transaction for committing reservations
+[2025-09-28 11:13:33.343] [INF] ORDER PROCESS: Processing reservation - ProductId: 18, VariantId: null, Quantity: 1, Status: active
+[2025-09-28 11:13:33.379] [INF] ORDER PROCESS: Updated product 18 stock from 55 to 54 (change: -1)
+[2025-09-28 11:13:33.391] [INF] ORDER PROCESS: SaveChanges completed, about to commit transaction
+[2025-09-28 11:13:33.392] [INF] ORDER PROCESS: Transaction committed successfully - 1 reservations for order 75
+[2025-09-28 11:13:33.392] [INF] Inventory commit completed for OrderId: 75
+[2025-09-28 11:13:33.421] [INF] Payment c2dc1009-a731-4995-af7f-5f890515c6bf updated to paid
+[2025-09-28 11:13:33.422] [INF] Successfully processed Momo IPN for RequestId 0a4abc24-7778-4463-abc3-93ea9bf1d3b9, OrderInfo = c2dc1009-a731-4995-af7f-5f890515c6bf, Success = true
