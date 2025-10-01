@@ -1,0 +1,135 @@
+@startuml TheLightStore_Core_ERD
+!theme plain
+skinparam linetype ortho
+skinparam class {
+    BackgroundColor White
+    ArrowColor Black
+    BorderColor Black
+}
+
+' Core Entities
+class User {
+    +id: int {PK}
+    +email: varchar(255) {unique}
+    +password_hash: varchar(255)
+    +first_name: varchar(100)
+    +last_name: varchar(100)
+    +user_type: varchar(50)
+    +created_at: datetime
+}
+
+class Role {
+    +id: int {PK}
+    +name: varchar(100) {unique}
+    +description: text
+    +is_active: boolean
+}
+
+class Category {
+    +id: int {PK}
+    +name: varchar(100)
+    +slug: varchar(100) {unique}
+    +parent_id: int {FK}
+    +is_active: boolean
+}
+
+class Brand {
+    +id: int {PK}
+    +name: varchar(100) {unique}
+    +logo_url: varchar(500)
+    +is_active: boolean
+}
+
+class Product {
+    +id: int {PK}
+    +category_id: int {FK}
+    +brand_id: int {FK}
+    +name: varchar(255)
+    +slug: varchar(255) {unique}
+    +sku: varchar(100) {unique}
+    +base_price: decimal(10,2)
+    +sale_price: decimal(10,2)
+    +stock_quantity: int
+    +is_active: boolean
+    +is_featured: boolean
+}
+
+class ProductImage {
+    +id: int {PK}
+    +product_id: int {FK}
+    +image_url: varchar(500)
+    +is_primary: boolean
+    +sort_order: int
+}
+
+class ShoppingCart {
+    +id: int {PK}
+    +user_id: int {FK}
+    +created_at: datetime
+}
+
+class CartItem {
+    +id: int {PK}
+    +cart_id: int {FK}
+    +product_id: int {FK}
+    +quantity: int
+    +unit_price: decimal(10,2)
+}
+
+class Order {
+    +id: int {PK}
+    +user_id: int {FK}
+    +order_number: varchar(50) {unique}
+    +order_status: varchar(50)
+    +total_amount: decimal(10,2)
+    +order_date: datetime
+}
+
+class OrderItem {
+    +id: int {PK}
+    +order_id: int {FK}
+    +product_id: int {FK}
+    +quantity: int
+    +unit_price: decimal(10,2)
+}
+
+class ProductReview {
+    +id: int {PK}
+    +product_id: int {FK}
+    +user_id: int {FK}
+    +rating: int
+    +comment: text
+    +status: varchar(50)
+    +created_at: datetime
+}
+
+class Address {
+    +id: int {PK}
+    +user_id: int {FK}
+    +address_type: varchar(50)
+    +recipient_name: varchar(100)
+    +address_line1: varchar(255)
+    +is_default: boolean
+}
+
+' Relationships
+User ||--o{ ShoppingCart : owns
+User ||--o{ Order : places
+User ||--o{ ProductReview : writes
+User ||--o{ Address : has
+
+Category ||--o{ Product : contains
+Category ||--o{ Category : parent_of
+
+Brand ||--o{ Product : manufactures
+
+Product ||--o{ ProductImage : has
+Product ||--o{ CartItem : added_to
+Product ||--o{ OrderItem : ordered_as
+Product ||--o{ ProductReview : receives
+
+ShoppingCart ||--o{ CartItem : contains
+
+Order ||--o{ OrderItem : contains
+
+@enduml

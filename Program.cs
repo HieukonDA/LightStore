@@ -12,6 +12,8 @@ using TheLightStore.Interfaces.Payment;
 using TheLightStore.Interfaces.ProductReviews;
 using TheLightStore.Interfaces.Repository;
 using TheLightStore.Interfaces.Search;
+using TheLightStore.Interfaces.Blog;
+using TheLightStore.Interfaces.Banners;
 using TheLightStore.Repositories.Orders;
 using TheLightStore.Repositories.Payment;
 using TheLightStore.Repositories.ProductReviews;
@@ -24,6 +26,8 @@ using TheLightStore.Services.Orders;
 using TheLightStore.Services.Payment;
 using TheLightStore.Services.ProductReviews;
 using TheLightStore.Services.Search;
+using TheLightStore.Services.cs;
+using TheLightStore.Repositories;
 using TheLightStore.Hubs;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -228,6 +232,14 @@ builder.Services.AddScoped<IAddressService, AddressService>();
 // Product Review services
 builder.Services.AddScoped<IProductReviewService, ProductReviewService>();
 builder.Services.AddScoped<IProductReviewRepo, ProductReviewRepo>();
+
+// Blog services
+builder.Services.AddScoped<IBlogService, BlogService>();
+builder.Services.AddScoped<IBlogRepository, BlogRepository>();
+
+// Banner services  
+builder.Services.AddScoped<IBannerService, BannerService>();
+builder.Services.AddScoped<IBannerRepository, BannerRepository>();
 
 builder.Services.AddSingleton<IpRateLimitService>();
 

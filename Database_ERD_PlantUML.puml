@@ -1,0 +1,596 @@
+@startuml TheLightStore_ERD
+!define ENTITY class
+!define PK #FFD700
+!define FK #87CEEB
+!define NULLABLE #F0F0F0
+
+skinparam classAttributeIconSize 0
+skinparam class {
+    BackgroundColor White
+    ArrowColor Black
+    BorderColor Black
+}
+
+' ========================================
+' AUTHENTICATION & AUTHORIZATION SYSTEM
+' ========================================
+
+ENTITY User {
+    PK id : int
+    --
+    email : varchar(255) {unique}
+    password_hash : varchar(255)
+    first_name : varchar(100)
+    last_name : varchar(100)
+    phone : varchar(20) {nullable}
+    user_type : varchar(50)
+    email_verified : boolean
+    is_active : boolean
+    created_at : datetime
+    updated_at : datetime
+}
+
+ENTITY Role {
+    PK id : int
+    --
+    name : varchar(100) {unique}
+    description : text {nullable}
+    is_active : boolean
+    created_at : datetime
+}
+
+ENTITY Permission {
+    PK id : int
+    --
+    name : varchar(100)
+    module : varchar(50)
+    action : varchar(50)
+    description : text {nullable}
+    created_at : datetime
+}
+
+ENTITY UserRole {
+    PK,FK user_id : int
+    PK,FK role_id : int
+    --
+    assigned_at : datetime
+    is_active : boolean
+}
+
+ENTITY RolePermission {
+    PK,FK role_id : int
+    PK,FK permission_id : int
+    --
+    assigned_at : datetime
+    is_active : boolean
+}
+
+' ========================================
+' PRODUCT CATALOG SYSTEM
+' ========================================
+
+ENTITY Category {
+    PK id : int
+    --
+    name : varchar(100)
+    slug : varchar(100) {unique}
+    description : text {nullable}
+    image_url : varchar(500) {nullable}
+    FK parent_id : int {nullable}
+    sort_order : int
+    is_active : boolean
+    created_at : datetime
+    updated_at : datetime {nullable}
+}
+
+ENTITY Brand {
+    PK id : int
+    --
+    name : varchar(100) {unique}
+    description : text {nullable}
+    logo_url : varchar(500) {nullable}
+    is_active : boolean
+    created_at : datetime {nullable}
+}
+
+ENTITY Product {
+    PK id : int
+    --
+    FK category_id : int
+    FK brand_id : int {nullable}
+    name : varchar(255)
+    slug : varchar(255) {unique}
+    short_description : text {nullable}
+    description : text {nullable}
+    sku : varchar(100) {unique}
+    base_price : decimal(10,2)
+    sale_price : decimal(10,2)
+    weight : decimal(8,2) {nullable}
+    dimensions : varchar(100) {nullable}
+    origin : varchar(100) {nullable}
+    warranty_type : varchar(100) {nullable}
+    warranty_period : int {nullable}
+    manage_stock : boolean
+    stock_quantity : int
+    stock_alert_threshold : int
+    allow_backorder : boolean
+    version_number : int
+    meta_title : varchar(255) {nullable}
+    meta_description : text {nullable}
+    is_active : boolean
+    is_featured : boolean
+    has_variants : boolean
+    created_at : datetime
+    updated_at : datetime {nullable}
+}
+
+ENTITY ProductVariant {
+    PK id : int
+    --
+    FK product_id : int
+    name : varchar(255)
+    sku : varchar(100) {unique}
+    cost_price : decimal(10,2) {nullable}
+    base_price : decimal(10,2)
+    sale_price : decimal(10,2)
+    weight : decimal(8,2) {nullable}
+    dimensions : varchar(50) {nullable}
+    stock_quantity : int
+    stock_alert_threshold : int {nullable}
+    allow_backorder : boolean
+    is_active : boolean
+    created_at : datetime
+    updated_at : datetime {nullable}
+}
+
+ENTITY ProductImage {
+    PK id : int
+    --
+    FK product_id : int
+    FK variant_id : int {nullable}
+    image_url : varchar(500)
+    alt_text : varchar(255) {nullable}
+    is_primary : boolean
+    sort_order : int
+    created_at : datetime
+}
+
+ENTITY Attribute {
+    PK id : int
+    --
+    name : varchar(100)
+    display_name : varchar(100)
+    attribute_type : varchar(50)
+    is_required : boolean
+    is_filterable : boolean
+    is_variable : boolean
+    sort_order : int
+    created_at : datetime
+}
+
+ENTITY AttributeValue {
+    PK id : int
+    --
+    FK attribute_id : int
+    value : varchar(255)
+    display_value : varchar(255) {nullable}
+    color_hex : varchar(7) {nullable}
+    sort_order : int
+    is_active : boolean
+}
+
+ENTITY ProductAttribute {
+    PK id : int
+    --
+    FK product_id : int
+    FK attribute_id : int
+    FK value_id : int {nullable}
+    custom_value : varchar(255) {nullable}
+    display_order : int
+}
+
+' ========================================
+' SHOPPING CART SYSTEM
+' ========================================
+
+ENTITY ShoppingCart {
+    PK id : int
+    --
+    FK user_id : int {nullable}
+    session_id : varchar(255) {nullable}
+    guest_email : varchar(255) {nullable}
+    created_at : datetime
+    updated_at : datetime
+}
+
+ENTITY CartItem {
+    PK id : int
+    --
+    FK cart_id : int
+    FK product_id : int
+    FK variant_id : int {nullable}
+    quantity : int
+    unit_price : decimal(10,2)
+    total_price : decimal(10,2)
+    added_at : datetime
+}
+
+ENTITY SavedCart {
+    PK id : int
+    --
+    FK user_id : int
+    cart_name : varchar(100)
+    cart_data : text
+    created_at : datetime
+}
+
+' ========================================
+' ORDER MANAGEMENT SYSTEM  
+' ========================================
+
+ENTITY Order {
+    PK id : int
+    --
+    FK user_id : int {nullable}
+    order_number : varchar(50) {unique}
+    order_status : varchar(50)
+    customer_name : varchar(100) {nullable}
+    customer_email : varchar(255)
+    customer_phone : varchar(20) {nullable}
+    subtotal_amount : decimal(10,2)
+    tax_amount : decimal(10,2)
+    shipping_amount : decimal(10,2)
+    discount_amount : decimal(10,2)
+    total_amount : decimal(10,2)
+    currency : varchar(3)
+    payment_status : varchar(50)
+    payment_method : varchar(50) {nullable}
+    notes : text {nullable}
+    order_date : datetime
+    confirmed_at : datetime {nullable}
+    shipped_at : datetime {nullable}
+    delivered_at : datetime {nullable}
+    cancelled_at : datetime {nullable}
+    created_at : datetime
+    updated_at : datetime {nullable}
+}
+
+ENTITY OrderItem {
+    PK id : int
+    --
+    FK order_id : int
+    FK product_id : int
+    FK variant_id : int {nullable}
+    product_name : varchar(255)
+    variant_name : varchar(255) {nullable}
+    sku : varchar(100)
+    quantity : int
+    unit_price : decimal(10,2)
+    total_price : decimal(10,2)
+}
+
+ENTITY OrderAddress {
+    PK id : int
+    --
+    FK order_id : int
+    address_type : varchar(50)
+    recipient_name : varchar(100)
+    phone : varchar(20) {nullable}
+    address_line1 : varchar(255)
+    address_line2 : varchar(255) {nullable}
+    ward : varchar(100) {nullable}
+    district : varchar(100) {nullable}
+    city : varchar(100) {nullable}
+    province : varchar(100) {nullable}
+    postal_code : varchar(10) {nullable}
+    created_at : datetime
+}
+
+ENTITY OrderStatusHistory {
+    PK id : int
+    --
+    FK order_id : int
+    status : varchar(50)
+    notes : text {nullable}
+    created_at : datetime
+}
+
+ENTITY OrderPayment {
+    PK id : int
+    --
+    FK order_id : int
+    payment_method : varchar(50)
+    payment_status : varchar(50)
+    transaction_id : varchar(255) {nullable}
+    payment_gateway : varchar(50) {nullable}
+    amount : decimal(10,2)
+    currency : varchar(3)
+    gateway_response : text {nullable}
+    processed_at : datetime {nullable}
+    created_at : datetime
+}
+
+ENTITY OrderInvoice {
+    PK id : int
+    --
+    FK order_id : int
+    invoice_number : varchar(50)
+    invoice_type : varchar(50)
+    company_name : varchar(255) {nullable}
+    individual_name : varchar(100) {nullable}
+    tax_code : varchar(50) {nullable}
+    address : text {nullable}
+    invoice_required : boolean
+    invoice_file_url : varchar(500) {nullable}
+    created_at : datetime
+}
+
+' ========================================
+' INVENTORY MANAGEMENT SYSTEM
+' ========================================
+
+ENTITY InventoryLog {
+    PK id : int
+    --
+    FK product_id : int
+    FK variant_id : int {nullable}
+    FK order_id : int {nullable}
+    transaction_type : varchar(50)
+    quantity_change : int
+    previous_quantity : int
+    new_quantity : int
+    reason : varchar(255) {nullable}
+    reference_number : varchar(100) {nullable}
+    created_at : datetime
+}
+
+ENTITY InventoryReservation {
+    PK id : int
+    --
+    FK product_id : int
+    FK variant_id : int {nullable}
+    FK cart_id : int {nullable}
+    FK order_id : int {nullable}
+    quantity : int
+    status : varchar(50)
+    session_id : varchar(255) {nullable}
+    reserved_until : datetime
+    created_at : datetime
+}
+
+' ========================================
+' CUSTOMER REVIEW SYSTEM
+' ========================================
+
+ENTITY ProductReview {
+    PK id : int
+    --
+    FK product_id : int
+    FK user_id : int {nullable}
+    FK order_id : int {nullable}
+    customer_name : varchar(100)
+    customer_email : varchar(255)
+    rating : int
+    title : varchar(255) {nullable}
+    comment : text
+    images : varchar(500) {nullable}
+    status : varchar(50)
+    is_verified_purchase : boolean {nullable}
+    helpful_count : int {nullable}
+    created_at : datetime {nullable}
+    approved_at : datetime {nullable}
+}
+
+ENTITY ReviewHelpfulVote {
+    PK id : int
+    --
+    FK review_id : int
+    FK user_id : int {nullable}
+    ip_address : varchar(45) {nullable}
+    is_helpful : boolean
+    created_at : datetime {nullable}
+}
+
+' ========================================
+' ADDRESS MANAGEMENT SYSTEM
+' ========================================
+
+ENTITY Address {
+    PK id : int
+    --
+    FK user_id : int
+    address_type : varchar(50)
+    recipient_name : varchar(100)
+    phone : varchar(20) {nullable}
+    address_line1 : varchar(255)
+    address_line2 : varchar(255) {nullable}
+    ward : varchar(100) {nullable}
+    district : varchar(100) {nullable}
+    city : varchar(100) {nullable}
+    province : varchar(100) {nullable}
+    postal_code : varchar(10) {nullable}
+    is_default : boolean
+    created_at : datetime
+}
+
+' ========================================
+' COUPON & DISCOUNT SYSTEM
+' ========================================
+
+ENTITY Coupon {
+    PK id : int
+    --
+    code : varchar(50) {unique}
+    name : varchar(100)
+    description : text {nullable}
+    discount_type : varchar(20)
+    discount_value : decimal(10,2)
+    minimum_amount : decimal(10,2) {nullable}
+    maximum_discount : decimal(10,2) {nullable}
+    usage_limit : int
+    usage_limit_per_customer : int
+    used_count : int
+    start_date : datetime
+    end_date : datetime
+    is_active : boolean
+    created_at : datetime
+    updated_at : datetime {nullable}
+}
+
+ENTITY CouponUsage {
+    PK id : int
+    --
+    FK coupon_id : int
+    FK user_id : int {nullable}
+    FK order_id : int
+    discount_amount : decimal(10,2)
+    used_at : datetime
+}
+
+' ========================================
+' GUEST SESSION SYSTEM
+' ========================================
+
+ENTITY GuestSession {
+    PK id : varchar(255)
+    --
+    guest_name : varchar(100) {nullable}
+    guest_email : varchar(255) {nullable}
+    guest_phone : varchar(20) {nullable}
+    ip_address : varchar(45) {nullable}
+    user_agent : text {nullable}
+    created_at : datetime
+    last_activity : datetime
+    expires_at : datetime
+}
+
+' ========================================
+' BLOG SYSTEM
+' ========================================
+
+ENTITY BlogCategory {
+    PK id : int
+    --
+    name : varchar(100)
+    slug : varchar(100) {unique}
+    description : text {nullable}
+    is_active : boolean
+    created_at : datetime
+}
+
+ENTITY BlogPost {
+    PK id : int
+    --
+    FK blog_category_id : int {nullable}
+    title : varchar(255)
+    slug : varchar(255) {unique}
+    content : text
+    excerpt : text {nullable}
+    featured_image : varchar(500) {nullable}
+    status : varchar(20)
+    published_at : datetime {nullable}
+    meta_title : varchar(255) {nullable}
+    meta_description : text {nullable}
+    created_at : datetime
+    updated_at : datetime {nullable}
+}
+
+' ========================================
+' SYSTEM SETTINGS
+' ========================================
+
+ENTITY SystemSetting {
+    PK id : int
+    --
+    setting_key : varchar(100) {unique}
+    setting_value : text {nullable}
+    setting_type : varchar(50) {nullable}
+    category : varchar(50)
+    description : text {nullable}
+    is_public : boolean
+    updated_at : datetime {nullable}
+}
+
+ENTITY Notification {
+    PK id : int
+    --
+    FK user_id : int {nullable}
+    type : varchar(50)
+    title : varchar(255)
+    message : text
+    data : text {nullable}
+    is_read : boolean
+    created_at : datetime
+    read_at : datetime {nullable}
+}
+
+' ========================================
+' RELATIONSHIPS
+' ========================================
+
+' Auth System Relationships
+User ||--o{ UserRole : has
+Role ||--o{ UserRole : assigned_to
+Role ||--o{ RolePermission : has
+Permission ||--o{ RolePermission : granted_to
+
+' Product Catalog Relationships
+Category ||--o{ Category : parent_of
+Category ||--o{ Product : contains
+Brand ||--o{ Product : manufactures
+Product ||--o{ ProductVariant : has
+Product ||--o{ ProductImage : has
+ProductVariant ||--o{ ProductImage : has
+Product ||--o{ ProductAttribute : has
+Attribute ||--o{ AttributeValue : has
+Attribute ||--o{ ProductAttribute : defines
+AttributeValue ||--o{ ProductAttribute : provides
+
+' Shopping Cart Relationships
+User ||--o| ShoppingCart : owns
+ShoppingCart ||--o{ CartItem : contains
+Product ||--o{ CartItem : in
+ProductVariant ||--o{ CartItem : variant_of
+User ||--o{ SavedCart : saves
+
+' Order Management Relationships
+User ||--o{ Order : places
+Order ||--o{ OrderItem : contains
+Order ||--o{ OrderAddress : shipped_to
+Order ||--o{ OrderStatusHistory : tracks
+Order ||--o{ OrderPayment : pays_for
+Order ||--|| OrderInvoice : invoiced_as
+Product ||--o{ OrderItem : ordered_as
+ProductVariant ||--o{ OrderItem : variant_ordered
+
+' Inventory Relationships
+Product ||--o{ InventoryLog : tracks
+ProductVariant ||--o{ InventoryLog : variant_tracks
+Order ||--o{ InventoryLog : affects
+Product ||--o{ InventoryReservation : reserves
+ProductVariant ||--o{ InventoryReservation : variant_reserves
+ShoppingCart ||--o{ InventoryReservation : temporarily_holds
+Order ||--o{ InventoryReservation : confirms
+
+' Review System Relationships
+Product ||--o{ ProductReview : reviewed_in
+User ||--o{ ProductReview : writes
+Order ||--o{ ProductReview : verified_by
+ProductReview ||--o{ ReviewHelpfulVote : voted_on
+User ||--o{ ReviewHelpfulVote : votes
+
+' Address Relationships
+User ||--o{ Address : has
+
+' Coupon Relationships
+Coupon ||--o{ CouponUsage : used_in
+User ||--o{ CouponUsage : uses
+Order ||--o{ CouponUsage : applies_to
+
+' Blog Relationships
+BlogCategory ||--o{ BlogPost : categorizes
+
+' Notification Relationships
+User ||--o{ Notification : receives
+
+@enduml

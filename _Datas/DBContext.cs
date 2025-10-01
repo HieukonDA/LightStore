@@ -1,6 +1,9 @@
 namespace TheLightStore.Datas;
 using TheLightStore.Models.Attributes;
 using TheLightStore.Models.Notifications;
+using TheLightStore.Models.System;
+using TheLightStore.Models.Auth;
+using TheLightStore.Models.Blogs;
 using Microsoft.EntityFrameworkCore;
 
 
@@ -65,6 +68,8 @@ public partial class DBContext : DbContext
     public virtual DbSet<ShoppingCart> ShoppingCarts { get; set; }
 
     public virtual DbSet<SystemSetting> SystemSettings { get; set; }
+
+    public virtual DbSet<Banner> Banners { get; set; }
 
     public virtual DbSet<User> Users { get; set; }
 
@@ -1054,7 +1059,58 @@ public partial class DBContext : DbContext
                 .HasDefaultValue(true);
         });
 
+        // Banner Configuration
+        modelBuilder.Entity<Banner>(entity =>
+        {
+            entity.ToTable("Banner");
+            entity.HasKey(b => b.Id);
 
+            entity.Property(b => b.Title)
+                .IsRequired()
+                .HasMaxLength(255);
+
+            entity.Property(b => b.Description)
+                .HasMaxLength(500);
+
+            entity.Property(b => b.ImageUrl)
+                .IsRequired()
+                .HasMaxLength(500);
+
+            entity.Property(b => b.LinkUrl)
+                .HasMaxLength(500);
+
+            entity.Property(b => b.Position)
+                .IsRequired()
+                .HasMaxLength(50);
+
+            entity.Property(b => b.SortOrder)
+                .HasDefaultValue(0);
+
+            entity.Property(b => b.IsActive)
+                .HasDefaultValue(true);
+
+            entity.Property(b => b.StartDate)
+                .HasColumnType("datetime");
+
+            entity.Property(b => b.EndDate)
+                .HasColumnType("datetime");
+
+            entity.Property(b => b.CreatedAt)
+                .HasDefaultValueSql("GETUTCDATE()")
+                .HasColumnType("datetime");
+
+            entity.Property(b => b.UpdatedAt)
+                .HasColumnType("datetime");
+
+            entity.HasOne(b => b.CreatedByNavigation)
+                .WithMany()
+                .HasForeignKey(b => b.CreatedBy)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasIndex(b => b.Position);
+            entity.HasIndex(b => b.IsActive);
+            entity.HasIndex(b => new { b.StartDate, b.EndDate });
+        });
 
         OnModelCreatingPartial(modelBuilder);
     }
