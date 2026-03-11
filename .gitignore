@@ -100,6 +100,12 @@ documentation/
 *.swo
 
 ###################
+# Script and development files
+###################
+*.ps1
+*.ts
+
+###################
 # OS generated files
 ###################
 .DS_Store
