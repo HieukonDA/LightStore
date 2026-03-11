@@ -14,10 +14,13 @@ using TheLightStore.Interfaces.Repository;
 using TheLightStore.Interfaces.Search;
 using TheLightStore.Interfaces.Blog;
 using TheLightStore.Interfaces.Banners;
+using TheLightStore.Interfaces.Encryption;
+using TheLightStore.Interfaces.GHN;
 using TheLightStore.Repositories.Orders;
 using TheLightStore.Repositories.Payment;
 using TheLightStore.Repositories.ProductReviews;
 using TheLightStore.Services.Auth;
+using TheLightStore.Services.GHN;
 using TheLightStore.Services.BackgroundJobs;
 using TheLightStore.Services.Images;
 using TheLightStore.Services.Inventory;
@@ -27,6 +30,7 @@ using TheLightStore.Services.Payment;
 using TheLightStore.Services.ProductReviews;
 using TheLightStore.Services.Search;
 using TheLightStore.Services.cs;
+using TheLightStore.Services.Encryption;
 using TheLightStore.Repositories;
 using TheLightStore.Hubs;
 
@@ -36,14 +40,33 @@ var builder = WebApplication.CreateBuilder(args);
 Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Information()
     .MinimumLevel.Override("Microsoft", Serilog.Events.LogEventLevel.Warning)
-    .Filter.ByIncludingOnly(logEvent => 
-        logEvent.MessageTemplate.Text.Contains("ORDER PROCESS") ||
-        logEvent.Properties.ContainsKey("OrderProcess"))
     .WriteTo.File(
         path: "logs/order-process-.txt",
         rollingInterval: RollingInterval.Day,
         retainedFileCountLimit: 7,
-        outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss.fff}] [{Level:u3}] {Message:lj}{NewLine}{Exception}"
+        restrictedToMinimumLevel: Serilog.Events.LogEventLevel.Information,
+        outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss.fff}] [{Level:u3}] {Message:lj}{NewLine}{Exception}",
+        shared: true
+    )
+    .WriteTo.File(
+        path: "logs/auth-.txt",
+        rollingInterval: RollingInterval.Day,
+        retainedFileCountLimit: 7,
+        restrictedToMinimumLevel: Serilog.Events.LogEventLevel.Information,
+        outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss.fff}] [{Level:u3}] {Message:lj}{NewLine}{Exception}",
+        shared: true
+    )
+    .WriteTo.File(
+        path: "logs/cart-.txt",
+        rollingInterval: RollingInterval.Day,
+        retainedFileCountLimit: 7,
+        restrictedToMinimumLevel: Serilog.Events.LogEventLevel.Information,
+        outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss.fff}] [{Level:u3}] 🛒 {Message:lj}{NewLine}{Exception}",
+        shared: true
+    )
+    .WriteTo.Console(
+        restrictedToMinimumLevel: Serilog.Events.LogEventLevel.Information,
+        outputTemplate: "[{Timestamp:HH:mm:ss}] [{Level:u3}] {Message:lj}{NewLine}{Exception}"
     )
     .CreateLogger();
 
@@ -176,6 +199,11 @@ builder.Services.AddScoped<IOrderRepo, OrderRepo>();
 builder.Services.AddScoped<IOrderItemRepo, OrderItemRepo>();
 builder.Services.AddScoped<IOrderStatusHistoryRepo, OrderStatusHistoryRepo>();
 
+// GHN Integration
+builder.Services.Configure<GHNSettings>(builder.Configuration.GetSection("GHN"));
+builder.Services.AddScoped<IGHNService, GHNService>();
+builder.Services.AddScoped<OrderProcessingService>();
+
 builder.Services.AddScoped<IPaymentRepo, PaymentRepo>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
 
@@ -205,11 +233,13 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddMemoryCache();
 
 // DI Services
+builder.Services.AddScoped<IEncryptionService, EncryptionService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IUserRepo, UserRepo>();
 builder.Services.AddScoped<ICategoryService, CategoryService>();
 builder.Services.AddScoped<ICategoryRepo, CategoryRepo>();
 builder.Services.AddScoped<IProductService, ProductService>();
+builder.Services.AddScoped<IProductVariantService, ProductVariantService>();
 builder.Services.AddScoped<IProductRepo, ProductRepo>();
 builder.Services.AddScoped<IImageService, ImageService>();
 builder.Services.AddScoped<IProductVariantRepo, ProductVariantRepo>();

@@ -1,78 +1,10 @@
-// namespaces
+// Clean Architecture - Only essential global usings
+// Old namespaces removed to avoid conflicts with Application layer
+
+// Database
 global using TheLightStore.Datas;
 
-global using TheLightStore.Models.Auth;
-global using TheLightStore.Dtos.Auth;
-global using TheLightStore.Interfaces.Auth;
-
-
-global using TheLightStore.Models.Categories;
-global using TheLightStore.Dtos.Category;
-global using TheLightStore.Interfaces.Category;
-global using TheLightStore.Repositories.Category;
-
-
-global using TheLightStore.Models.Attributes;
-
-
-global using TheLightStore.Models.Products;
-global using TheLightStore.Dtos.Products;
-global using TheLightStore.Interfaces.Products;
-global using TheLightStore.Repositories.Products;
-global using TheLightStore.Services.Products;
-
-
-global using TheLightStore.Models.Inventories;
-
-
-global using TheLightStore.Models.Orders_Carts;
-global using TheLightStore.Dtos.Cart;
-global using TheLightStore.Interfaces.Cart;
-global using TheLightStore.Services.Cart;
-
-global using TheLightStore.Models.Blogs;
-
-
-global using TheLightStore.Models.Coupons_Discounts;
-
-
-global using TheLightStore.Models.ProductReviews;
-
-
-global using TheLightStore.Interfaces.Repository;
-global using TheLightStore.Services;
-global using TheLightStore.Dtos.Paging;
-
-global using TheLightStore.Models.Shipping;
-global using TheLightStore.Models.System;
-
-
-global using TheLightStore.Interfaces.Email;
-global using TheLightStore.Services.Email;
-
-global using TheLightStore.Helpers;
-
-global using TheLightStore.Repositories.InventoryTransaction;
-global using TheLightStore.Dtos.Inventory;
-global using TheLightStore.Interfaces.Inventory;
-
-global using TheLightStore.Constants;
-
-global using TheLightStore.Interfaces.Momo;
-global using TheLightStore.Models.Momo;
-global using TheLightStore.Services.Momo;
-
-global using TheLightStore.Dtos.Search;
-
-global using TheLightStore.Constants;
-
-global using TheLightStore.Dtos.Stats;
-
-global using TheLightStore.Interfaces.Addresses;
-global using TheLightStore.Dtos.Addresses;
-global using TheLightStore.Services.Addresses;
-
-// system
+// System
 global using Microsoft.EntityFrameworkCore;
 global using System.Text;
 global using System.Threading.RateLimiting;
@@ -82,7 +14,6 @@ global using Microsoft.IdentityModel.Tokens;
 global using System.IdentityModel.Tokens.Jwt;
 global using System.Security.Claims;
 global using System.Security.Cryptography;
-global using TheLightStore.Repositories.Auth;
 global using System.ComponentModel.DataAnnotations.Schema;
 global using Microsoft.AspNetCore.Mvc;
 global using System.Text.Json;
