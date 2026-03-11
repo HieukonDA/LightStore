@@ -104,6 +104,8 @@ documentation/
 ###################
 *.ps1
 *.ts
+*.txt
+!README.txt
 
 ###################
 # OS generated files
