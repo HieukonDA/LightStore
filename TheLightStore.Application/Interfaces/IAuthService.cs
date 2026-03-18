@@ -1,11 +1,14 @@
 using TheLightStore.Application.DTOs;
 using TheLightStore.Application.DTOs.Auth;
 using TheLightStore.Application.DTOs.Paging;
+using TheLightStore.Domain.Commons.Models;
 
 namespace TheLightStore.Application.Interfaces;
 
 public interface IAuthService
 {
+    Task<ResponseResult> Me();
+    
     // Đăng nhập
     Task<ServiceResult<AuthResponseDto>> LoginAsync(LoginDto loginDto);
     

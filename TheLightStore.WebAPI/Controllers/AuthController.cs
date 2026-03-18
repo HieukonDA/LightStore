@@ -1,6 +1,7 @@
 
 
 using Microsoft.AspNetCore.Authorization;
+using TheLightStore.Domain.Commons.Models;
 
 namespace TheLightStore.Controllers;
 
@@ -15,6 +16,13 @@ public class AuthController : ControllerBase
     {
         _authService = authService;
         _logger = logger;
+    }
+
+    [HttpPost]
+    [Authorize]
+    public async Task<ActionResult<ResponseResult>> Me()
+    {
+        return await _authService.Me();
     }
 
     [HttpPost("login")]
@@ -126,7 +134,7 @@ public class AuthController : ControllerBase
     public async Task<IActionResult> UpdateProfile([FromBody] UpdateProfileDto updateProfileDto)
     {
         var result = await _authService.UpdateProfileAsync(updateProfileDto);
-        
+
         if (result.Success)
         {
             return Ok(new
@@ -191,7 +199,7 @@ public class AuthController : ControllerBase
     public async Task<IActionResult> UpdateCustomerRole(int customerId, [FromBody] UpdateCustomerRoleDto updateRoleDto)
     {
         var result = await _authService.UpdateCustomerRoleAsync(customerId, updateRoleDto);
-        
+
         if (result.Success)
         {
             return Ok(new
