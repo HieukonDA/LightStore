@@ -1,5 +1,6 @@
 using Moq;
-using TheLightStore.Application.Interfaces;
+using TheLightStore.Application.Interfaces.Infrastructures;
+using TheLightStore.Application.Interfaces.Repositories;
 using TheLightStore.Application.Interfaces.Services;
 using TheLightStore.Application.Services.SysServices;
 using TheLightStore.Domain.Entities.Customers;

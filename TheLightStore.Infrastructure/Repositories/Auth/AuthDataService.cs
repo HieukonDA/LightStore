@@ -1,6 +1,6 @@
 using System;
 using Microsoft.EntityFrameworkCore;
-using TheLightStore.Application.Interfaces;
+using TheLightStore.Application.Interfaces.Repositories;
 using TheLightStore.Domain.Entities.Customers;
 using TheLightStore.Domain.Entities.Employees;
 using TheLightStore.Infrastructure.Persistence;

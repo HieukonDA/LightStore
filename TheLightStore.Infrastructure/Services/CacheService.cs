@@ -1,6 +1,6 @@
 using System;
 using Microsoft.Extensions.Caching.Memory;
-using TheLightStore.Application.Interfaces;
+using TheLightStore.Application.Interfaces.Infrastructures;
 
 namespace TheLightStore.Infrastructure.Services;
 

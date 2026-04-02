@@ -1,7 +1,7 @@
 using TheLightStore.Domain.Commons.Models;
 using static TheLightStore.Application.Dtos.AuthDto;
 
-namespace TheLightStore.Application.Interfaces;
+namespace TheLightStore.Application.Interfaces.Services;
 
 public interface IAuthService
 {

@@ -1,7 +1,7 @@
 using System;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
-using TheLightStore.Application.Interfaces;
+using TheLightStore.Application.Interfaces.Infrastructures;
 
 namespace TheLightStore.Infrastructure.Services;
 

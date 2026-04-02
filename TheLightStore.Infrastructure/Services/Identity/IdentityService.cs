@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using TheLightStore.Application.Interfaces.Services;
+using TheLightStore.Application.Interfaces.Repositories;
 using TheLightStore.Application.Mappings;
 using TheLightStore.Infrastructure.Persistence;
 using TheLightStore.Infrastructure.Persistence.SysEntities;

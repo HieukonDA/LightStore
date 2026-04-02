@@ -3,6 +3,7 @@ namespace TheLightStore.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using TheLightStore.Domain.Entities.Customers;
 using TheLightStore.Domain.Entities.Employees;
+using TheLightStore.Domain.Entities.Products;
 using TheLightStore.Infrastructure.Persistence.SysEntities;
 
 
@@ -29,6 +30,19 @@ public partial class DBContext : DbContext
     
     // Employee-related DbSets
     public virtual DbSet<Employee> Employees { get; set; }
+    
+    // Product-related DbSets
+    public virtual DbSet<Product> Products { get; set; }
+    public virtual DbSet<ProductDetail> ProductDetails { get; set; }
+    public virtual DbSet<Category> Categories { get; set; }
+    public virtual DbSet<Brand> Brands { get; set; }
+    public virtual DbSet<Power> Powers { get; set; }
+    public virtual DbSet<ColorTemperature> ColorTemperatures { get; set; }
+    public virtual DbSet<Shape> Shapes { get; set; }
+    public virtual DbSet<BaseType> BaseTypes { get; set; }
+    public virtual DbSet<ProductImage> ProductImages { get; set; }
+    public virtual DbSet<Promotion> Promotions { get; set; }
+    public virtual DbSet<ProductPromotion> ProductPromotions { get; set; }
 
     // onmodel creating method for fluent api configurations
     protected override void OnModelCreating(ModelBuilder modelBuilder)

@@ -1,7 +1,7 @@
 using System;
 using System.Net;
 using System.Net.Mail;
-using TheLightStore.Application.Interfaces;
+using TheLightStore.Application.Interfaces.Infrastructures;
 using TheLightStore.Domain.Commons.Models;
 
 namespace TheLightStore.Infrastructure.Services;

@@ -2,7 +2,7 @@ using System;
 using System.Net.Mail;
 using TheLightStore.Domain.Commons.Models;
 
-namespace TheLightStore.Application.Interfaces;
+namespace TheLightStore.Application.Interfaces.Infrastructures;
 
 public interface IEmailSenderService
 {

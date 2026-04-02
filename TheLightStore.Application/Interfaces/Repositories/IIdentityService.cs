@@ -3,7 +3,7 @@ using TheLightStore.Application.Dtos;
 using TheLightStore.Domain.Commons.Models;
 using static TheLightStore.Application.Dtos.AuthDto;
 
-namespace TheLightStore.Application.Interfaces.Services;
+namespace TheLightStore.Application.Interfaces.Repositories;
 
 public interface IIdentityService
 {

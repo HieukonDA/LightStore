@@ -1,6 +1,6 @@
 using System;
 using Microsoft.Extensions.Configuration;
-using TheLightStore.Application.Interfaces;
+using TheLightStore.Application.Interfaces.Infrastructures;
 
 namespace TheLightStore.Infrastructure.Services;
 

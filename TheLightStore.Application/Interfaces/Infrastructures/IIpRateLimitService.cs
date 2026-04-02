@@ -1,7 +1,7 @@
 using System.Net;
 using TheLightStore.Application.Models.RateLimit;
 
-namespace TheLightStore.Application.Interfaces.Services;
+namespace TheLightStore.Application.Interfaces.Infrastructures;
 
 public interface IIpRateLimitService
 {

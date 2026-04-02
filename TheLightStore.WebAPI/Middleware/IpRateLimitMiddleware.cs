@@ -1,6 +1,6 @@
 using System.Net;
 using System.Text.Json;
-using TheLightStore.Application.Interfaces.Services;
+using TheLightStore.Application.Interfaces.Infrastructures;
 
 public class IpRateLimitMiddleware
 {
