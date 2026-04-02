@@ -1,7 +1,7 @@
 using TheLightStore.Domain.Entities.Customers;
 using TheLightStore.Domain.Entities.Employees;
 
-namespace TheLightStore.Application.Interfaces;
+namespace TheLightStore.Application.Interfaces.Repositories;
 
 public interface IAuthDataService
 {

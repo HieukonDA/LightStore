@@ -1,6 +1,6 @@
 using System;
 using Microsoft.EntityFrameworkCore;
-using TheLightStore.Application.Interfaces;
+using TheLightStore.Application.Interfaces.Infrastructures;
 using TheLightStore.Infrastructure.Persistence;
 
 namespace TheLightStore.Infrastructure.Services;

@@ -1,5 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
-using TheLightStore.Application.Interfaces;
+using TheLightStore.Application.Interfaces.Infrastructures;
 using TheLightStore.Application.Interfaces.Services;
 using TheLightStore.Application.Services;
 using TheLightStore.Application.Services.SysServices;
@@ -15,6 +15,9 @@ public static class ApplicationServiceCollectionExtensions
         
         // Rate Limit Service
         services.AddScoped<IIpRateLimitService, IpRateLimitService>();
+
+        // Product Services
+        services.AddScoped<IPowerService, PowerService>();
 
         return services;
     }

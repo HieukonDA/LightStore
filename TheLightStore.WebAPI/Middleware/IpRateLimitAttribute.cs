@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 using System.Net;
-using TheLightStore.Application.Interfaces.Services;
+using TheLightStore.Application.Interfaces.Infrastructures;
 
 public class IpRateLimitAttribute : ActionFilterAttribute
 {

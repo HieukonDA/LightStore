@@ -4,7 +4,7 @@ using System.Security.Claims;
 using System.Security.Principal;
 using System.Text;
 using Microsoft.IdentityModel.Tokens;
-using TheLightStore.Application.Interfaces;
+using TheLightStore.Application.Interfaces.Infrastructures;
 
 namespace TheLightStore.Application.Helpers;
 

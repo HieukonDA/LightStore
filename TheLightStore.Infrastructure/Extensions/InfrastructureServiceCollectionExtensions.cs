@@ -2,10 +2,11 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using TheLightStore.Application.Interfaces;
-using TheLightStore.Application.Interfaces.Services;
+using TheLightStore.Application.Interfaces.Infrastructures;
+using TheLightStore.Application.Interfaces.Repositories;
 using TheLightStore.Infrastructure.Persistence;
 using TheLightStore.Infrastructure.Persistence.SysEntities;
+using TheLightStore.Infrastructure.Repositories;
 using TheLightStore.Infrastructure.Repositories.Auth;
 using TheLightStore.Infrastructure.Services;
 using TheLightStore.Infrastructure.Services.Identity;
@@ -42,6 +43,9 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<ICacheService, CacheService>();
         services.AddScoped<IConfigurationService, ConfigurationService>();
         services.AddScoped<ICurrentUserService, CurrentUserService>();
+
+        // Product Repositories
+        services.AddScoped<IPowerRepository, PowerRepository>();
 
         return services;
     }

@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using System.Net;
-using TheLightStore.Application.Interfaces.Services;
+using TheLightStore.Application.Interfaces.Infrastructures;
 using TheLightStore.Application.Models.RateLimit;
 
 namespace TheLightStore.Application.Services;

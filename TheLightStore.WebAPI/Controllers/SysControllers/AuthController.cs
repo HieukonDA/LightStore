@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity.Data;
 using Microsoft.AspNetCore.Mvc;
-using TheLightStore.Application.Interfaces;
+using TheLightStore.Application.Interfaces.Services;
 using TheLightStore.Domain.Commons.Models;
 using TheLightStore.Domain.Constants;
 using TheLightStore.WebAPI.Filter;

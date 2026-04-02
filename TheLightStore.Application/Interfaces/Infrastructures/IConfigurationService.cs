@@ -1,4 +1,4 @@
-namespace TheLightStore.Application.Interfaces;
+namespace TheLightStore.Application.Interfaces.Infrastructures;
 
 public interface IConfigurationService
 {
