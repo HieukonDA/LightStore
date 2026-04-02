@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore.Storage;
 using TheLightStore.Application.Interfaces;
+using TheLightStore.Application.Interfaces.Repositories;
 
 namespace TheLightStore.Infrastructure.Persistence;
 

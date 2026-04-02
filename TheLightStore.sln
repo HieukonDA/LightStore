@@ -11,6 +11,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TheLightStore.Infrastructur
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TheLightStore.WebAPI", "TheLightStore.WebAPI\TheLightStore.WebAPI.csproj", "{DA4383AF-D195-482E-B7F7-B214D68B6662}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TheLightStore.Tests", "TheLightStore.Tests\TheLightStore.Tests.csproj", "{2DAAB242-B763-4418-9E5F-1301D5390109}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -69,6 +71,18 @@ Global
 		{DA4383AF-D195-482E-B7F7-B214D68B6662}.Release|x64.Build.0 = Release|Any CPU
 		{DA4383AF-D195-482E-B7F7-B214D68B6662}.Release|x86.ActiveCfg = Release|Any CPU
 		{DA4383AF-D195-482E-B7F7-B214D68B6662}.Release|x86.Build.0 = Release|Any CPU
+		{2DAAB242-B763-4418-9E5F-1301D5390109}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2DAAB242-B763-4418-9E5F-1301D5390109}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2DAAB242-B763-4418-9E5F-1301D5390109}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{2DAAB242-B763-4418-9E5F-1301D5390109}.Debug|x64.Build.0 = Debug|Any CPU
+		{2DAAB242-B763-4418-9E5F-1301D5390109}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{2DAAB242-B763-4418-9E5F-1301D5390109}.Debug|x86.Build.0 = Debug|Any CPU
+		{2DAAB242-B763-4418-9E5F-1301D5390109}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2DAAB242-B763-4418-9E5F-1301D5390109}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2DAAB242-B763-4418-9E5F-1301D5390109}.Release|x64.ActiveCfg = Release|Any CPU
+		{2DAAB242-B763-4418-9E5F-1301D5390109}.Release|x64.Build.0 = Release|Any CPU
+		{2DAAB242-B763-4418-9E5F-1301D5390109}.Release|x86.ActiveCfg = Release|Any CPU
+		{2DAAB242-B763-4418-9E5F-1301D5390109}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

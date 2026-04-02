@@ -5,15 +5,13 @@ using TheLightStore.Application.Interfaces.Services;
 public class IpRateLimitMiddleware
 {
     private readonly RequestDelegate _next;
-    private readonly IIpRateLimitService _rateLimitService;
 
-    public IpRateLimitMiddleware(RequestDelegate next, IIpRateLimitService rateLimitService)
+    public IpRateLimitMiddleware(RequestDelegate next)
     {
         _next = next;
-        _rateLimitService = rateLimitService;
     }
 
-    public async Task InvokeAsync(HttpContext context)
+    public async Task InvokeAsync(HttpContext context, IIpRateLimitService rateLimitService)
     {
         var ipAddress = GetClientIpAddress(context);
         var endpoint = context.Request.Path.Value;
@@ -25,7 +23,7 @@ public class IpRateLimitMiddleware
             return;
         }
 
-        var status = await _rateLimitService.GetStatusAsync(ipAddress, endpoint);
+        var status = await rateLimitService.GetStatusAsync(ipAddress, endpoint);
 
         if (!status.IsAllowed)
         {
@@ -44,8 +42,8 @@ public class IpRateLimitMiddleware
             return;
         }
 
-        await _rateLimitService.IsAllowedAsync(ipAddress, endpoint);
-        var newStatus = await _rateLimitService.GetStatusAsync(ipAddress, endpoint);
+        await rateLimitService.IsAllowedAsync(ipAddress, endpoint);
+        var newStatus = await rateLimitService.GetStatusAsync(ipAddress, endpoint);
 
         context.Response.Headers.Add("X-RateLimit-Remaining", newStatus.RemainingRequests.ToString());
         context.Response.Headers.Add("X-RateLimit-Reset", newStatus.ResetTime.ToString("yyyy-MM-dd HH:mm:ss UTC"));

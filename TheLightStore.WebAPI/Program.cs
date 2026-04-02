@@ -1,19 +1,22 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
 using Serilog;
 using System.Text;
 using System.Threading.RateLimiting;
-using TheLightStore.Application;
-using TheLightStore.Infrastructure.Persistence;
-using TheLightStore.Infrastructure;
-using TheLightStore.Application.DTOs.Momo;
+using TheLightStore.Application.Extensions;
+using TheLightStore.Infrastructure.Extensions;
+using TheLightStore.WebAPI.Filter;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Configure Serilog
+// ===========================
+// Logging Configuration
+// ===========================
 Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Information()
     .MinimumLevel.Override("Microsoft", Serilog.Events.LogEventLevel.Warning)
@@ -33,14 +36,19 @@ Log.Logger = new LoggerConfiguration()
 
 builder.Host.UseSerilog();
 
-// Add Layers (Onion Architecture)
+// ===========================
+// Service Registration (Onion Architecture)
+// ===========================
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 
-// Controllers
 builder.Services.AddControllers();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddTransient<DeviceDetectionService>();
 
-// JWT Authentication  
+// ===========================
+// Authentication & Authorization
+// ===========================
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -53,7 +61,6 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateIssuerSigningKey = true,
             ValidateLifetime = true,
             ClockSkew = TimeSpan.Zero,
-
             ValidIssuer = builder.Configuration["Jwt:Issuer"],
             ValidAudience = builder.Configuration["Jwt:Audience"],
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
@@ -76,7 +83,31 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
+builder.Services.AddAuthorization();
+
+// ===========================
+// CORS Configuration
+// ===========================
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowFrontend", policy =>
+    {
+        policy.WithOrigins(
+                "http://localhost:5173",
+                "https://localhost:5264",
+                "http://localhost:5264",
+                "https://thelightstore.io.vn",
+                "http://thelightstore.io.vn"
+            )
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials();
+    });
+});
+
+// ===========================
 // Rate Limiting
+// ===========================
 builder.Services.AddRateLimiter(options =>
 {
     options.AddPolicy("AuthPolicy", context =>
@@ -90,42 +121,12 @@ builder.Services.AddRateLimiter(options =>
             }));
 });
 
-// CORS (Important for SignalR)
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("AllowFrontend",
-        policy =>
-        {
-            policy.WithOrigins(
-                "http://localhost:5173",
-                "https://localhost:5264",
-                "http://localhost:5264",
-                "https://thelightstore.io.vn",
-                "http://thelightstore.io.vn"
-            )
-                  .AllowAnyHeader()
-                  .AllowAnyMethod()
-                  .AllowCredentials();
-        });
-});
-
-// Authorization & Identity
-builder.Services.AddAuthorization();
-builder.Services.AddIdentityCore<IdentityUser>(options =>
-{
-    options.Password.RequireDigit = false;
-    options.Password.RequiredLength = 6;
-    options.Password.RequireLowercase = false;
-    options.Password.RequireUppercase = false;
-    options.Password.RequireNonAlphanumeric = false;
-})
-.AddEntityFrameworkStores<DBContext>()
-.AddDefaultTokenProviders();
-
-builder.Services.AddHttpContextAccessor();
-
-// Session
+// ===========================
+// Caching & Session
+// ===========================
+builder.Services.AddMemoryCache();
 builder.Services.AddDistributedMemoryCache();
+
 builder.Services.AddSession(options =>
 {
     options.IdleTimeout = TimeSpan.FromMinutes(30);
@@ -135,36 +136,75 @@ builder.Services.AddSession(options =>
     options.Cookie.SecurePolicy = CookieSecurePolicy.None;
 });
 
-// MoMo API
-builder.Services.Configure<MomoConfig>(builder.Configuration.GetSection("MomoAPI"));
-builder.Services.AddHttpClient();
-
-// Memory Cache for RBAC
-builder.Services.AddMemoryCache();
-
-// Swagger
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
-
-// Configure file upload size
+// ===========================
+// File Upload & API Configuration
+// ===========================
 builder.Services.Configure<FormOptions>(options =>
 {
     options.MultipartBodyLengthLimit = 5 * 1024 * 1024; // 5MB
 });
 
+builder.Services.AddHttpClient();
+
+// ===========================
+// API Documentation
+// ===========================
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(setup =>
+{
+    setup.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "Coffee Shop Management - APIs 08:56 11-05",
+        Version = "v1"
+    });
+    setup.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme()
+    {
+        Name = "Authorization",
+        Type = SecuritySchemeType.ApiKey,
+        Scheme = "Bearer",
+        BearerFormat = "JWT",
+        In = ParameterLocation.Header,
+        Description = "Sample for login: 'Bearer + {your_token}'"
+
+    });
+    setup.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+                new OpenApiSecurityScheme
+                {
+                    Reference = new OpenApiReference
+                    {
+                        Type = ReferenceType.SecurityScheme,
+                        Id = "Bearer"
+                    }
+                },
+                Array.Empty<string>()
+        }
+    });
+    setup.MapType<DateOnly>(() => new OpenApiSchema
+    {
+        Type = "string",
+        Format = "date"
+    });
+});
+
 var app = builder.Build();
 
+// ===========================
 // Middleware Pipeline
+// ===========================
+
+// Development Environment
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
 
+// Security & Static Files
 app.UseHttpsRedirection();
 app.UseCors("AllowFrontend");
 
-// Static files
 app.UseStaticFiles();
 app.UseStaticFiles(new StaticFileOptions
 {
@@ -173,14 +213,18 @@ app.UseStaticFiles(new StaticFileOptions
     RequestPath = "/product"
 });
 
+// Session & Authentication
 app.UseSession();
 app.UseAuthentication();
 app.UseAuthorization();
+
+// Rate Limiting & Custom Middleware
 app.UseRateLimiter();
+// app.UseMiddleware<IpRateLimitMiddleware>();
 
 app.MapControllers();
 
-// SignalR Hub - sẽ uncomment sau khi fix namespaces
+// SignalR Hub - will be uncommented after fixing namespaces
 // app.MapHub<NotificationHub>("/notificationHub");
 
 try
