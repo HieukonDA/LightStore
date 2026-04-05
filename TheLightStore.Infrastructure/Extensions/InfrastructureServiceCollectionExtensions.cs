@@ -51,6 +51,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<IBaseTypeRepository, BaseTypeRepository>();
         services.AddScoped<ICategoryRepository, CategoryRepository>();
         services.AddScoped<IBrandRepository, BrandRepository>();
+        services.AddScoped<IPromotionRepository, PromotionRepository>();
 
         return services;
     }
