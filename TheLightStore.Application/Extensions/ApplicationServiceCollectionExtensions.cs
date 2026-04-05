@@ -23,6 +23,7 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<IBaseTypeService, BaseTypeService>();
         services.AddScoped<ICategoryService, CategoryService>();
         services.AddScoped<IBrandService, BrandService>();
+        services.AddScoped<IPromotionService, PromotionService>();
 
         return services;
     }
