@@ -45,6 +45,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<ICurrentUserService, CurrentUserService>();
 
         // Product Repositories
+        services.AddScoped<IProductRepository, ProductRepository>();
         services.AddScoped<IPowerRepository, PowerRepository>();
         services.AddScoped<IShapeRepository, ShapeRepository>();
         services.AddScoped<IColorTemperatureRepository, ColorTemperatureRepository>();
@@ -53,6 +54,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<IBrandRepository, BrandRepository>();
         services.AddScoped<IPromotionRepository, PromotionRepository>();
         services.AddScoped<IProductPromotionRepository, ProductPromotionRepository>();
+        services.AddScoped<IProductDetailRepository, ProductDetailRepository>();
 
         return services;
     }
