@@ -160,9 +160,10 @@ public class ProductDetailServiceTests
     {
         // Arrange
         var createDto = _fixture.CreateTestListProductDetailCreateDto();
+        var productDto = new ProductDto.ProductGetDto { Id = 1, Code = "PRD001", Name = "Test Product" };
         _fixture.MockProductRepository
             .Setup(r => r.GetByIdAsync(It.IsAny<long>()))
-            .ReturnsAsync(new Product { Id = 1, Name = "Test" });
+            .ReturnsAsync(productDto);
         _fixture.MockProductDetailRepository
             .Setup(r => r.CreateAsync(It.IsAny<ProductDetail>()))
             .ReturnsAsync(1);
@@ -204,7 +205,7 @@ public class ProductDetailServiceTests
         var createDto = _fixture.CreateTestListProductDetailCreateDto();
         _fixture.MockProductRepository
             .Setup(r => r.GetByIdAsync(It.IsAny<long>()))
-            .ReturnsAsync((Product?)null);
+            .ReturnsAsync((ProductDto.ProductGetDto?)null);
 
         var service = _fixture.CreateProductDetailService();
 

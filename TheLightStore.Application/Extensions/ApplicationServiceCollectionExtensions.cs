@@ -26,6 +26,7 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<IPromotionService, PromotionService>();
         services.AddScoped<IProductPromotionService, ProductPromotionService>();
         services.AddScoped<IProductDetailService, ProductDetailService>();
+        services.AddScoped<IProductService, ProductService>();
 
         return services;
     }
