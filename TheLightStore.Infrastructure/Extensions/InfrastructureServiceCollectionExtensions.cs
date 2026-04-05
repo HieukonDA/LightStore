@@ -50,6 +50,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<IColorTemperatureRepository, ColorTemperatureRepository>();
         services.AddScoped<IBaseTypeRepository, BaseTypeRepository>();
         services.AddScoped<ICategoryRepository, CategoryRepository>();
+        services.AddScoped<IBrandRepository, BrandRepository>();
 
         return services;
     }
