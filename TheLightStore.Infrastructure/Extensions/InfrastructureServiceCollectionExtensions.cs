@@ -46,6 +46,7 @@ public static class InfrastructureServiceCollectionExtensions
 
         // Product Repositories
         services.AddScoped<IPowerRepository, PowerRepository>();
+        services.AddScoped<IShapeRepository, ShapeRepository>();
 
         return services;
     }
