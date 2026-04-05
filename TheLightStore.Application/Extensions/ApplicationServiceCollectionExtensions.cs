@@ -20,6 +20,7 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<IPowerService, PowerService>();
         services.AddScoped<IShapeService, ShapeService>();
         services.AddScoped<IColorTemperatureService, ColorTemperatureService>();
+        services.AddScoped<IBaseTypeService, BaseTypeService>();
 
         return services;
     }
