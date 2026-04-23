@@ -11,6 +11,7 @@ using System.Threading.RateLimiting;
 using TheLightStore.Application.Extensions;
 using TheLightStore.Infrastructure.Extensions;
 using TheLightStore.WebAPI.Filter;
+using TheLightStore.WebAPI.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -93,11 +94,7 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowFrontend", policy =>
     {
         policy.WithOrigins(
-                "http://localhost:5173",
-                "https://localhost:5264",
-                "http://localhost:5264",
-                "https://thelightstore.io.vn",
-                "http://thelightstore.io.vn"
+                "http://localhost:4200"
             )
             .AllowAnyHeader()
             .AllowAnyMethod()
@@ -193,6 +190,9 @@ var app = builder.Build();
 // ===========================
 // Middleware Pipeline
 // ===========================
+
+// Global Exception Handling
+app.UseMiddleware<GlobalExceptionHandlingMiddleware>();
 
 // Development Environment
 if (app.Environment.IsDevelopment())
